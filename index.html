@@ -207,19 +207,20 @@
 
 <div id="profile-overlay">
     <div id="profile-box">
-        <h3>🎣 Local Profile Login</h3>
-        <p>Your game progress is saved locally to this profile.</p>
+        <h3>🎣 Remote Profile Login</h3>
+        <p>Your game progress is saved on a **remote server**.</p>
         
         <p id="profile-message" style="color: green;">Enter your details to Login or Register.</p>
         
         <label for="username-input">Username:</label>
         <input type="text" id="username-input" required placeholder="PlayerName" minlength="3">
         
-        <label for="password-input">Password (local only):</label>
+        <label for="password-input">Password:</label>
         <input type="password" id="password-input" required placeholder="••••••••" minlength="4">
         
         <button id="login-button" onclick="handleLogin()">Login</button>
         <button id="register-button" onclick="handleRegister()">Register</button>
+        <p style="font-size: 0.8em; margin-top: 10px;">**Note: Backend server required for full functionality.**</p>
     </div>
 </div>
 
@@ -302,6 +303,15 @@
 
 
 <script>
+    // =================================================================
+    // >>> API CONFIGURATION: REPLACE THIS WITH YOUR BACKEND URL <<<
+    // =================================================================
+    const API_URL = 'http://localhost:3000/api'; 
+    let currentProfile = null;
+    let autoSaveInterval;
+    // JWT/Session token (to be sent with all authenticated requests)
+    let authToken = null; 
+
     // --- Configuration: MAPS, RARITIES, FISH_NAMES, FISHING_RODS (Unchanged) ---
     const MAPS = [
         { id: 'lakeside', name: 'Lakeside Pier', description: 'A calm freshwater spot. Best for Common and Uncommon fish.' },
@@ -362,11 +372,6 @@
     const MAP_COOLDOWN_TIME = 10; 
     let discoveredFish = new Set();
     
-    // --- PROFILE / SAVE SYSTEM VARIABLES ---
-    const PROFILE_KEY = 'fishingGameProfiles';
-    let currentProfile = null;
-    let autoSaveInterval;
-    
     // --- DOM Elements ---
     const fishingButton = document.getElementById('fishing-button');
     const sellAllButton = document.getElementById('sell-all-button');
@@ -403,20 +408,13 @@
     
 
     // =================================================================
-    // >>> PROFILE & AUTHENTICATION FUNCTIONS (UNCHANGED) <<<
+    // >>> REMOTE PROFILE & AUTHENTICATION FUNCTIONS (UPDATED) <<<
     // =================================================================
 
-    function getProfiles() {
-        const profilesJson = localStorage.getItem(PROFILE_KEY);
-        return profilesJson ? JSON.parse(profilesJson) : {};
-    }
-
-    function saveProfiles(profiles) {
-        localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
-    }
-    
     function checkProfileOnLoad() {
         clearInterval(autoSaveInterval); 
+        // In a real app, you would check localStorage for an existing 'authToken' here.
+        // If found, you'd try to automatically load the profile before showing the login screen.
         
         profileOverlay.style.display = 'flex';
         gameContainer.style.display = 'none';
@@ -424,10 +422,9 @@
         initialSetup(); 
     }
 
-    function handleLogin() {
+    async function handleLogin() {
         const username = usernameInput.value.trim();
         const password = passwordInput.value.trim();
-        const profiles = getProfiles();
         
         profileMessage.style.color = 'red';
 
@@ -436,24 +433,44 @@
             return;
         }
 
-        if (profiles[username] && profiles[username].password === password) {
-            currentProfile = username;
-            profileMessage.textContent = `Welcome back, ${username}! Loading game...`;
-            profileOverlay.style.display = 'none';
-            gameContainer.style.display = 'block';
-            
-            currentProfileDisplay.textContent = username;
-            loadGame(true); 
-            startAutoSave();
-        } else {
-            profileMessage.textContent = "Login failed. Invalid username or password.";
+        profileMessage.style.color = 'orange';
+        profileMessage.textContent = `Attempting to log in ${username}...`;
+
+        try {
+            const response = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Assuming the backend returns an authToken and the username
+                authToken = data.token;
+                currentProfile = username;
+                
+                profileMessage.style.color = 'green';
+                profileMessage.textContent = `Welcome back, ${username}! Loading game...`;
+                
+                profileOverlay.style.display = 'none';
+                gameContainer.style.display = 'block';
+                currentProfileDisplay.textContent = username;
+                
+                await loadGame(true); 
+                startAutoSave();
+            } else {
+                profileMessage.textContent = data.message || "Login failed. Invalid credentials or API error.";
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            profileMessage.textContent = "Network error or backend unavailable. Check console for details.";
         }
     }
 
-    function handleRegister() {
+    async function handleRegister() {
         const username = usernameInput.value.trim();
         const password = passwordInput.value.trim();
-        const profiles = getProfiles();
 
         profileMessage.style.color = 'red';
 
@@ -466,32 +483,62 @@
             return;
         }
 
-        if (profiles[username]) {
-            profileMessage.textContent = "Username already exists. Please log in or choose another name.";
-        } else {
-            profiles[username] = {
-                password: password,
-                gameState: null 
-            };
-            saveProfiles(profiles);
-            
-            currentProfile = username;
-            profileMessage.style.color = 'green';
-            profileMessage.textContent = `Account created! Welcome, ${username}! Starting new game...`;
-            profileOverlay.style.display = 'none';
-            gameContainer.style.display = 'block';
-            
-            currentProfileDisplay.textContent = username;
-            resetGameState(); 
-            startAutoSave();
+        profileMessage.style.color = 'orange';
+        profileMessage.textContent = `Attempting to register ${username}...`;
+
+        try {
+            const response = await fetch(`${API_URL}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Registration successful, log them in immediately
+                authToken = data.token; 
+                currentProfile = username;
+                
+                profileMessage.style.color = 'green';
+                profileMessage.textContent = `Account created! Welcome, ${username}! Starting new game...`;
+                
+                profileOverlay.style.display = 'none';
+                gameContainer.style.display = 'block';
+                currentProfileDisplay.textContent = username;
+                
+                // The server should create a default game state upon registration
+                resetGameState(false); // Reset client state
+                await saveGame(); // Push default state to server
+                startAutoSave();
+            } else {
+                profileMessage.textContent = data.message || "Registration failed. Username may already exist.";
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            profileMessage.textContent = "Network error or backend unavailable. Check console for details.";
         }
     }
 
-    function logoutProfile() {
-        if (confirm("Are you sure you want to log out? Ensure your progress is saved.")) {
-            saveGame(); 
+    async function logoutProfile() {
+        if (!currentProfile || !authToken) return;
+
+        if (confirm("Are you sure you want to log out? Your current progress will be saved.")) {
+            await saveGame(); 
+            
+            // Optional: send logout request to server to invalidate token
+            try {
+                await fetch(`${API_URL}/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+            } catch (e) {
+                console.warn("Logout failed on server side (or API is down), proceeding with client logout.");
+            }
+
             clearInterval(autoSaveInterval);
             currentProfile = null;
+            authToken = null;
             
             usernameInput.value = '';
             passwordInput.value = '';
@@ -504,7 +551,7 @@
     }
 
     // =================================================================
-    // >>> SAVE/LOAD FUNCTIONS (UNCHANGED) <<<
+    // >>> REMOTE SAVE/LOAD FUNCTIONS (UPDATED) <<<
     // =================================================================
 
     function getInitialGameState() {
@@ -518,7 +565,7 @@
         };
     }
 
-    function resetGameState() {
+    function resetGameState(silent = true) {
         const initialState = getInitialGameState();
         
         money = initialState.money;
@@ -537,15 +584,12 @@
         updateInventoryDisplay();
         setMap(currentMapId);
         toggleMapButtons(false);
-        resultDiv.textContent = 'New game started!';
+        if (!silent) resultDiv.textContent = 'New game state loaded!';
     }
 
 
-    function saveGame() {
-        if (!currentProfile) return;
-
-        const profiles = getProfiles();
-        if (!profiles[currentProfile]) return; 
+    async function saveGame() {
+        if (!currentProfile || !authToken) return;
 
         const gameState = {
             money: money,
@@ -556,95 +600,127 @@
             discoveredFish: Array.from(discoveredFish)
         };
         
-        profiles[currentProfile].gameState = gameState;
-        saveProfiles(profiles);
-        // console.log(`Game Saved for profile: ${currentProfile}!`);
+        try {
+            const response = await fetch(`${API_URL}/save`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}` 
+                },
+                body: JSON.stringify(gameState)
+            });
+
+            if (response.ok) {
+                 // console.log(`Game Saved for profile: ${currentProfile}!`);
+            } else {
+                console.error('Failed to save game:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Network error during save:', error);
+        }
     }
     
     function startAutoSave() {
         clearInterval(autoSaveInterval); 
-        autoSaveInterval = setInterval(() => {
-            saveGame();
+        autoSaveInterval = setInterval(async () => {
+            await saveGame();
             console.log(`Auto-Saved profile: ${currentProfile}`);
-        }, 10000); 
+        }, 15000); // Increased auto-save interval
     }
 
-    function loadGame(manualLoad = false) {
-        if (!currentProfile) {
+    async function loadGame(manualLoad = false) {
+        if (!currentProfile || !authToken) {
              if (manualLoad) resultDiv.textContent = 'Login first to load a profile!';
              return;
         }
-
-        const profiles = getProfiles();
-        const profileData = profiles[currentProfile];
         
-        if (profileData && profileData.gameState) {
-            const gameState = profileData.gameState;
-            
-            money = gameState.money || 0;
-            currentRod = FISHING_RODS.find(r => r.id === gameState.currentRodId) || FISHING_RODS[0];
-            ownedRods = new Set(gameState.ownedRods || ['basic']);
-            inventory = gameState.inventory || [];
-            currentMapId = gameState.currentMapId || 'lakeside';
-            discoveredFish = new Set(gameState.discoveredFish || []);
+        if (manualLoad) resultDiv.textContent = `Attempting to load profile ${currentProfile}...`;
 
-            clearInterval(mapChangeInterval);
-            mapCooldown = false;
-            mapChangeTimer = 0;
+        try {
+            const response = await fetch(`${API_URL}/load`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}` 
+                }
+            });
+
+            if (response.ok) {
+                const gameState = await response.json();
             
-            updateMoneyDisplay();
-            updateRodDisplay();
-            updateInventoryDisplay();
-            generateMapButtons();
-            setMap(currentMapId);
-            toggleMapButtons(false);
-            
-            if (manualLoad) {
-                resultDiv.textContent = `🔁 Profile ${currentProfile} loaded successfully!`;
+                money = gameState.money || 0;
+                currentRod = FISHING_RODS.find(r => r.id === gameState.currentRodId) || FISHING_RODS[0];
+                ownedRods = new Set(gameState.ownedRods || ['basic']);
+                inventory = gameState.inventory || [];
+                currentMapId = gameState.currentMapId || 'lakeside';
+                discoveredFish = new Set(gameState.discoveredFish || []);
+
+                clearInterval(mapChangeInterval);
+                mapCooldown = false;
+                mapChangeTimer = 0;
+                
+                updateMoneyDisplay();
+                updateRodDisplay();
+                updateInventoryDisplay();
+                generateMapButtons();
+                setMap(currentMapId);
+                toggleMapButtons(false);
+                
+                resultDiv.textContent = `🔁 Profile ${currentProfile} loaded successfully from server!`;
             } else {
-                resultDiv.textContent = `Welcome back, ${currentProfile}. Game loaded.`;
+                const errorData = await response.json();
+                resultDiv.textContent = `Error loading profile (${response.status}): ${errorData.message || 'Server error.'}. Starting new game.`;
+                resetGameState(false);
             }
-        } else {
-            if (manualLoad) {
-                resultDiv.textContent = `No save data found for ${currentProfile}. Starting new game.`;
-            }
-            resetGameState(); 
+        } catch (error) {
+            console.error('Network error during load:', error);
+            resultDiv.textContent = `Network error: Could not connect to server. Starting new game state.`;
+            resetGameState(false);
         }
     }
     
-    function resetGame(confirmRequired = true) {
-        if (!currentProfile) return;
+    async function resetGame(confirmRequired = true) {
+        if (!currentProfile || !authToken) return;
         
-        if (confirmRequired && !confirm(`Are you sure you want to reset all progress for profile "${currentProfile}"? This cannot be undone!`)) {
+        if (confirmRequired && !confirm(`Are you sure you want to reset all progress for profile "${currentProfile}"? This will reset your game on the server and cannot be undone!`)) {
             return;
         }
 
-        const profiles = getProfiles();
-        if (profiles[currentProfile]) {
-            profiles[currentProfile].gameState = null; 
-            saveProfiles(profiles);
+        try {
+            const response = await fetch(`${API_URL}/reset`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+
+            if (response.ok) {
+                resetGameState(false);
+                resultDiv.textContent = `🗑️ Profile progress for ${currentProfile} successfully reset on the server. Starting new game.`;
+            } else {
+                const errorData = await response.json();
+                resultDiv.textContent = `Error resetting profile: ${errorData.message || 'Server error.'}`;
+            }
+
+        } catch (error) {
+            console.error('Network error during reset:', error);
+            resultDiv.textContent = 'Network error: Could not connect to server to reset progress.';
         }
-        
-        resetGameState();
-        resultDiv.textContent = `🗑️ Profile progress for ${currentProfile} reset. Starting new game.`;
     }
 
 
     // =================================================================
-    // >>> GAME LOGIC FUNCTIONS (MINIGAME MODIFIED) <<<
+    // >>> GAME LOGIC FUNCTIONS (UNCHANGED) <<<
     // =================================================================
     
     function updateMoneyDisplay() {
         moneyDisplay.textContent = `💰 Money: $${money.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         updateShopDisplay(); 
-        saveGame();
+        // saveGame() call removed here to rely on autoSave
     }
     
     function updateRodDisplay() {
         rodNameSpan.textContent = currentRod.name;
         rodLuckSpan.textContent = currentRod.luck.toLocaleString(); 
         rodCatchPowerSpan.textContent = currentRod.catchPowerMultiplier.toFixed(2); 
-        saveGame();
+        // saveGame() call removed here to rely on autoSave
     }
 
     function getFishRarity() {
@@ -784,7 +860,7 @@
         } else {
             resultDiv.textContent = 'The fish got away! Try again.';
         }
-        saveGame();
+        // saveGame() call removed here to rely on autoSave
     }
     
     function updateInventoryDisplay() { 
@@ -826,27 +902,38 @@
     function updateShopDisplay() { 
         // Logic to update the shop display (omitted for brevity)
     }
-    function buyRod(rodId, cost) { 
-        // Logic to buy a rod (omitted for brevity)
+    async function buyRod(rodId, cost) { 
+        // Logic to buy a rod (MUST now include an API call to deduct money and update owned rods on the server)
+        // For now, client logic remains, but remember to save after.
+        if (money >= cost && !ownedRods.has(rodId)) {
+            money -= cost;
+            ownedRods.add(rodId);
+            updateMoneyDisplay();
+            updateShopDisplay();
+            resultDiv.textContent = `You bought the ${FISHING_RODS.find(r => r.id === rodId).name}!`;
+            await saveGame(); // Save after purchase
+        }
     }
-    function equipRod(rodId) { 
-        // Logic to equip a rod (omitted for brevity)
+    async function equipRod(rodId) { 
+        // Logic to equip a rod (MUST now include an API call to update current rod on the server)
+        // For now, client logic remains, but remember to save after.
+        if (ownedRods.has(rodId)) {
+            currentRod = FISHING_RODS.find(r => r.id === rodId);
+            updateRodDisplay();
+            updateShopDisplay();
+            resultDiv.textContent = `You equipped the ${currentRod.name}.`;
+            await saveGame(); // Save after equip
+        }
     }
-    // REMOVED: openAdminPanel()
-    // REMOVED: closeAdminPanel()
-    // REMOVED: addMoneyCheat()
-    // REMOVED: generateAdminRodButtons()
-    // REMOVED: giveRodCheat()
-
+    
     // --- Event Listeners and Initial Setup (UNCHANGED except for admin) ---
     fishingButton.addEventListener('click', startFishing);
     minigameButton.addEventListener('click', reelAction);
     sellAllButton.addEventListener('click', sellAllFish);
     document.getElementById('shop-button').addEventListener('click', openShop);
     document.getElementById('bestiary-button').addEventListener('click', openBestiary);
-    // REMOVED: document.getElementById('cheat-trigger-button').addEventListener('click', openAdminPanel);
 
-    // Expose global functions for inline HTML (Admin cheats removed)
+    // Expose global functions for inline HTML
     window.saveGame = saveGame;
     window.loadGame = loadGame;
     window.resetGame = resetGame;
@@ -875,3 +962,4 @@
 
 </body>
 </html>
+
