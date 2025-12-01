@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Clicker Fishing Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f8ff; /* Light blue background for water */
+            margin: 0;
+            color: #333;
+        }
+
+        #game-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        #fishing-button {
+            padding: 15px 30px;
+            font-size: 20px;
+            cursor: pointer;
+            background-color: #4CAF50; /* Green button */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        #fishing-button:hover {
+            background-color: #45a049;
+        }
+
+        #fishing-button:active {
+            transform: scale(0.98);
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            min-height: 50px; /* Reserve space */
+        }
+
+        #inventory {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .rarity-common { color: #555; }
+        .rarity-uncommon { color: #008000; } /* Green */
+        .rarity-rare { color: #0000ff; } /* Blue */
+        .rarity-legendary { color: #800080; } /* Purple */
+        .rarity-mythic { color: #ff8c00; } /* Dark Orange */
+        .rarity-exotic { color: #ffd700; } /* Gold */
+        .rarity-secret { color: #ff69b4; } /* Hot Pink */
+        .rarity-apex { color: #dc143c; } /* Crimson */
+
+        /* --- Mini-Game Overlay Styles --- */
+        #minigame-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        #minigame-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        #progress-bar-container {
+            width: 250px;
+            height: 20px;
+            background-color: #eee;
+            border-radius: 10px;
+            margin: 15px auto;
+            position: relative;
+            border: 1px solid #aaa;
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            border-radius: 10px;
+            transition: width 0.1s linear;
+        }
+
+        #target-area {
+            position: absolute;
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.4);
+            left: 50%; /* Example position */
+            width: 20%; /* Example size */
+            top: 0;
+            border-left: 2px solid red;
+            border-right: 2px solid red;
+        }
+
+        #minigame-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h2>🌊 Modded Ahh Fishing Game 🐟</h2>
+
+    <button id="fishing-button">Click to Fish!</button>
+
+    <div id="result">Waiting for a bite...</div>
+
+    <div id="inventory">
+        <h3>Inventory</h3>
+        <ul id="fish-list">
+            </ul>
+    </div>
+</div>
+
+<div id="minigame-overlay">
+    <div id="minigame-box">
+        <h3>Mini-Game: Reel it In!</h3>
+        <p>Click the button repeatedly when the progress bar is inside the **red target zone** to catch the fish!</p>
+        
+        <div id="progress-bar-container">
+            <div id="target-area"></div>
+            <div id="progress-bar"></div>
+        </div>
+
+        <p id="minigame-feedback"></p>
+        <button id="minigame-button">REEL!</button>
+    </div>
+</div>
+
+<script>
+    // --- Configuration ---
+    const RARITIES = [
+        { name: 'Common', chance: 0, colorClass: 'rarity-common' },
+        { name: 'Uncommon', chance: 0, colorClass: 'rarity-uncommon' },
+        { name: 'Rare', chance: 0, colorClass: 'rarity-rare' },
+        { name: 'Legendary', chance: 0, colorClass: 'rarity-legendary' },
+        { name: 'Mythic', chance: 0, colorClass: 'rarity-mythic' },
+        { name: 'Exotic', chance: 0, colorClass: 'rarity-exotic' },
+        { name: 'Secret', chance: 80, colorClass: 'rarity-secret' },
+        { name: 'Apex', chance: 50, colorClass: 'rarity-apex' },
+    ];
+
+    const FISH_NAMES = {
+        'Common': ['Minnow', 'Trout', 'Bass'],
+        'Uncommon': ['Perch', 'Carp', 'Catfish'],
+        'Rare': ['Salmon', 'Eel'],
+        'Legendary': ['Mahi-Mahi', 'Kingfish'],
+        'Mythic': ['Kraken Trout', 'Sunken Shark'],
+        'Exotic': ['Abyssal Dragonfish'],
+        'Secret': ['Cosmic Jellyfish', 'jhawk1119'],
+        'Apex': ['Primordial Leviathan', 'Sioltt'],
+    };
+
+    // --- State Variables ---
+    const inventory = {};
+    let minigameActive = false;
+    let minigameInterval;
+    let currentFishRarity = null;
+
+    // --- DOM Elements ---
+    const fishingButton = document.getElementById('fishing-button');
+    const resultDiv = document.getElementById('result');
+    const fishList = document.getElementById('fish-list');
+    const minigameOverlay = document.getElementById('minigame-overlay');
+    const minigameButton = document.getElementById('minigame-button');
+    const progressBar = document.getElementById('progress-bar');
+    const targetArea = document.getElementById('target-area');
+    const minigameFeedback = document.getElementById('minigame-feedback');
+
+    // --- Minigame Variables ---
+    let progress = 0; // 0 to 100
+    let barDirection = 1; // 1 for right, -1 for left
+    const BAR_SPEED = 2; 
+    const REEL_INCREMENT = 10
+    const CATCH_THRESHOLD = 100; // Progress needed to catch
+
+    // --- Functions ---
+
+    /**
+     * Uses the weighted probability array to determine the caught fish's rarity.
+     */
+    function getFishRarity() {
+        const totalChance = RARITIES.reduce((sum, item) => sum + item.chance, 0);
+        let random = Math.random() * totalChance;
+
+        for (const item of RARITIES) {
+            if (random < item.chance) {
+                return item;
+            }
+            random -= item.chance;
+        }
+        // Fallback (shouldn't happen with correct percentages)
+        return RARITIES[0];
+    }
+
+    /**
+     * Determines the specific fish name based on rarity.
+     */
+    function getFishName(rarityName) {
+        const names = FISH_NAMES[rarityName];
+        return names[Math.floor(Math.random() * names.length)];
+    }
+
+    /**
+     * Starts the fishing process (called by the main button).
+     */
+    function startFishing() {
+        if (minigameActive) return;
+
+        fishingButton.disabled = true;
+        resultDiv.textContent = 'Reeling in...';
+        currentFishRarity = getFishRarity();
+        
+        // Simulate a "wait for a bite"
+        setTimeout(startMiniGame, 1500);
+    }
+
+    /**
+     * Initializes and shows the minigame.
+     */
+    function startMiniGame() {
+        minigameActive = true;
+        minigameOverlay.style.display = 'flex';
+        progressBar.style.width = '0%';
+        progress = 50; // Start in the middle
+        barDirection = 1;
+        minigameFeedback.textContent = 'Keep the bar in the red zone!';
+
+        // Randomize the target area slightly to add variance
+        const targetSize = 20 + Math.random() * 10; // 20% to 30%
+        const targetPos = 10 + Math.random() * (100 - targetSize - 10); // 10% to (100-targetSize-10)%
+        targetArea.style.width = `${targetSize}%`;
+        targetArea.style.left = `${targetPos}%`;
+        targetArea.targetLeft = targetPos;
+        targetArea.targetRight = targetPos + targetSize;
+        
+        // Start the bar movement loop
+        minigameInterval = setInterval(updateMiniGame, 50); // Updates every 50ms
+    }
+
+    /**
+     * Logic for the moving bar mini-game.
+     */
+    function updateMiniGame() {
+        // Bar movement logic
+        progress += BAR_SPEED * barDirection;
+        if (progress >= 100 || progress <= 0) {
+            barDirection *= -1; // Reverse direction
+            progress = Math.max(0, Math.min(100, progress)); // Keep within bounds
+        }
+        progressBar.style.width = `${progress}%`;
+    }
+
+    /**
+     * Called when the user clicks the "REEL!" button.
+     */
+    function reelAction() {
+        if (!minigameActive) return;
+
+        // Check if the bar is within the target area
+        const isTargeted = progress >= targetArea.targetLeft && progress <= targetArea.targetRight;
+
+        if (isTargeted) {
+            // Successful click: Increase catch progress
+            progressBar.catchProgress = (progressBar.catchProgress || 0) + REEL_INCREMENT;
+            minigameFeedback.textContent = `HIT! Catch Progress: ${progressBar.catchProgress.toFixed(0)}%`;
+            
+            // Winning condition
+            if (progressBar.catchProgress >= CATCH_THRESHOLD) {
+                endMiniGame(true);
+            }
+        } else {
+            // Missed click: Lose some catch progress or reset
+            progressBar.catchProgress = Math.max(0, (progressBar.catchProgress || 0) - REEL_INCREMENT * 2);
+            minigameFeedback.textContent = `MISS! Catch Progress: ${progressBar.catchProgress.toFixed(0)}%`;
+
+            // Failing condition (You could make the bar move faster or fail entirely here)
+        }
+    }
+
+    /**
+     * Ends the minigame and determines the outcome.
+     */
+    function endMiniGame(success) {
+        clearInterval(minigameInterval);
+        minigameActive = false;
+        minigameOverlay.style.display = 'none';
+        fishingButton.disabled = false;
+        delete progressBar.catchProgress; // Clean up temp property
+
+        if (success) {
+            const fishName = getFishName(currentFishRarity.name);
+            const message = `You successfully caught a <span class="${currentFishRarity.colorClass}">${currentFishRarity.name} ${fishName}!</span>`;
+            resultDiv.innerHTML = message;
+            addToInventory(currentFishRarity.name, fishName, currentFishRarity.colorClass);
+        } else {
+            resultDiv.textContent = 'The fish got away! Try again.';
+        }
+    }
+
+
+    /**
+     * Adds the caught fish to the inventory.
+     */
+    function addToInventory(rarity, name, colorClass) {
+        const key = `${rarity}:${name}`;
+        inventory[key] = (inventory[key] || 0) + 1;
+        updateInventoryDisplay();
+    }
+
+    /**
+     * Redraws the inventory list.
+     */
+    function updateInventoryDisplay() {
+        fishList.innerHTML = '';
+        const sortedKeys = Object.keys(inventory).sort((a, b) => {
+            // Custom sort to keep rarer fish higher up
+            const rarityOrder = RARITIES.map(r => r.name);
+            const rarityA = a.split(':')[0];
+            const rarityB = b.split(':')[0];
+            return rarityOrder.indexOf(rarityB) - rarityOrder.indexOf(rarityA);
+        });
+
+        for (const key of sortedKeys) {
+            const [rarity, name] = key.split(':');
+            const count = inventory[key];
+            const rarityItem = RARITIES.find(r => r.name === rarity);
+            const colorClass = rarityItem ? rarityItem.colorClass : '';
+
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="${colorClass}">${rarity} ${name}</span> x${count}`;
+            fishList.appendChild(li);
+        }
+    }
+    
+    // --- Event Listeners ---
+    fishingButton.addEventListener('click', startFishing);
+    minigameButton.addEventListener('click', reelAction);
+
+    // Give a 1-second grace period after an unsuccessful click where the player can't reel.
+    // setTimeout(() => endMiniGame(false), 8000); // Fail after 8 seconds if not caught
+    // Note: I've commented out the timed fail for simplicity, but you could add a timer here.
+    
+    // Initial inventory display setup
+    updateInventoryDisplay();
+
+</script>
+
+</body>
+</html>
