@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Clicker Fishing Game - Moving Bar Minigame</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            /* --- FULL SCREEN CHANGE --- */
+            min-height: 100vh;
+            width: 100vw; 
+            margin: 0;
+            background-color: #f0f8ff; 
+            color: #333;
+            /* --- END FULL SCREEN CHANGE --- */
+        }
+
+        #game-container {
+            /* --- FULL SCREEN CHANGE --- */
+            min-height: 100vh;
+            width: 100vw;
+            padding: 30px;
+            border-radius: 0; /* Remove rounded corners for full screen */
+            box-shadow: none; /* Remove shadow for full screen */
+            /* --- END FULL SCREEN CHANGE --- */
+            background: #fff;
+            text-align: center;
+            max-width: none; /* Disable max width */
+            box-sizing: border-box; /* Include padding in width/height */
+            /* --- NEW: Allow absolute positioning of children --- */
+            position: relative;
+        }
+
+        /* --- DETAILED BUTTON STYLES (RETAINED) --- */
+        .game-button {
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.2), 0 6px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            top: 0;
+        }
+        
+        .game-button:active:not(:disabled) {
+            top: 4px;
+            box-shadow: 0 0px 0 0 rgba(0, 0, 0, 0.2), 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .game-button:disabled {
+            background-color: #9e9e9e !important;
+            box-shadow: 0 2px 0 0 rgba(0, 0, 0, 0.2);
+            cursor: not-allowed;
+            top: 2px;
+        }
+
+        /* 1. Main Fishing Button */
+        #fishing-button {
+            padding: 18px 35px;
+            font-size: 22px;
+            background-color: #4CAF50; /* Green */
+            box-shadow: 0 6px 0 0 #388e3c, 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+        #fishing-button:hover:not(:disabled) { background-color: #45a049; }
+
+        /* 2. Utility Buttons (Shop/Bestiary/Craft) */
+        .utility-button {
+            padding: 10px 15px;
+            font-size: 14px;
+            background-color: #007bff; /* Blue */
+            box-shadow: 0 3px 0 0 #0056b3, 0 4px 6px rgba(0, 0, 0, 0.15);
+        }
+        .utility-button:hover:not(:disabled) { background-color: #0069d9; }
+
+        /* 3. Map Selectors (Inherits utility-button base, specific color/shadow) */
+        .map-select-button {
+            background-color: #5cb85c; /* Light Green */
+            box-shadow: 0 3px 0 0 #4cae4c;
+        }
+        /* ADDED: Highlight for the temporary island button */
+        .map-select-button[data-map-id="rarity-island"] {
+            background-color: #ff9900; /* Orange/Gold */
+            box-shadow: 0 3px 0 0 #cc7a00;
+        }
+        .map-select-button.active { 
+            background-color: #3b8b3b; 
+            box-shadow: 0 1px 0 0 #3b8b3b inset; /* Flat look when active */
+            top: 2px;
+        }
+        .map-select-button:hover:not(.active):not(:disabled) { background-color: #4cae4c; }
+
+        /* --- MODIFIED: Save/Load/Reset Group - Top Right Positioning --- */
+        #save-load-group {
+            /* --- MODIFIED CSS --- */
+            position: absolute;
+            top: 20px; /* Adjust as needed */
+            right: 20px; /* Adjust as needed */
+            display: flex; 
+            justify-content: flex-end; /* Align buttons to the right */
+            margin-top: 0; /* Remove original margin */
+            gap: 5px;
+            z-index: 10; /* Ensure it stays above other elements */
+            /* --- END MODIFIED CSS --- */
+        }
+        #save-load-group .utility-button {
+            padding: 6px 10px;
+            font-size: 12px;
+            box-shadow: 0 2px 0 0 rgba(0, 0, 0, 0.2);
+        }
+        #save-load-group .utility-button:active:not(:disabled) {
+            top: 2px;
+            box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2);
+        }
+        
+        #save-load-group .utility-button:nth-child(1) { background-color: #ffc107; color: #333; box-shadow: 0 2px 0 0 #d39e00; } /* Save (Yellow/Dark) */
+        #save-load-group .utility-button:nth-child(2) { background-color: #17a2b8; box-shadow: 0 2px 0 0 #0f6674; } /* Load (Cyan) */
+        #save-load-group .utility-button:nth-child(3) { background-color: #dc3545; box-shadow: 0 2px 0 0 #bd2130; } /* Reset (Red) */
+
+
+        /* Other Styles */
+        #result { margin-top: 20px; font-size: 18px; min-height: 50px; }
+
+        #inventory, #money-display, #current-rod, #current-map-display {
+            margin-top: 15px; padding: 10px; border: 1px solid #ccc;
+            border-radius: 8px; text-align: left; background: #fafafa;
+        }
+        
+        #current-map-display { background-color: #c8e6c9; text-align: center; font-weight: bold; }
+        #money-display { font-size: 1.2em; font-weight: bold; color: #2196F3; text-align: center; }
+        #current-rod { font-size: 0.9em; text-align: center; background-color: #e0f7fa; }
+
+        /* Rarity Classes (Simplified) */
+        .rarity-common { color: #555; } .rarity-uncommon { color: #008000; }
+        .rarity-rare { color: #0000ff; } .rarity-orange { color: #ff9900; } 
+        .rarity-legendary { color: #800080; } .rarity-mythic { color: #ff8c00; }
+        .rarity-exotic { color: #ffd700; } .rarity-secret { color: #ff69b4; }
+        .rarity-apex { color: #dc143c; }
+        /* --- NEW RARITIES --- */
+        .rarity-heavenly { color: #00ffff; } /* Cyan */
+        .rarity-surreal { color: #ff00ff; } /* Magenta */
+        .rarity-limited { color: #ff4500; } /* Orange-Red */
+        .rarity-ancient { color: #a52a2a; } /* Brown */
+        
+        .value-high { color: green; font-weight: bold; }
+        .value-low { color: #cc0000; }
+
+        /* Button Groups */
+        #button-group {
+            display: flex; justify-content: center; margin-top: 15px;
+            gap: 10px; flex-wrap: wrap;
+        }
+        
+        #sell-all-button { 
+            background-color: #dc3545; 
+            margin-top: 5px; 
+            width: 100%; 
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 0 0 #bd2130;
+            font-weight: normal;
+        }
+        #sell-all-button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+        
+        #map-buttons-container { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+
+
+        /* --- Overlay Styles (Shop/Bestiary/Admin/Minigame/Crafting) --- */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); 
+            display: none;
+            align-items: center; 
+            justify-content: center; 
+            z-index: 2000;
+        }
+
+        .overlay-box {
+            background: #fff; padding: 25px; border-radius: 10px;
+            text-align: center; width: 90%; 
+            max-width: 600px; 
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            max-height: 80vh; overflow-y: auto;
+        }
+        
+        /* --- Crafting Panel Specific Styles (NEW) --- */
+        #crafting-overlay .overlay-box {
+            max-width: 800px;
+        }
+        .crafting-recipe {
+            border: 2px solid #3498db;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: #ecf0f1;
+        }
+        .crafting-recipe h4 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 1px dashed #3498db;
+            padding-bottom: 5px;
+        }
+        .crafting-materials-list {
+            list-style: none;
+            padding: 0;
+            font-size: 0.9em;
+        }
+        .crafting-materials-list li {
+            margin-bottom: 3px;
+            color: #7f8c8d;
+        }
+        .crafting-materials-list .owned {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .crafting-materials-list .missing {
+            color: #c0392b;
+            font-style: italic;
+        }
+        .craft-button-group {
+            text-align: right;
+        }
+        #craft-button {
+            background-color: #2ecc71;
+            box-shadow: 0 4px 0 0 #27ae60;
+        }
+
+        /* --- Admin Panel Specific Styles (ENHANCED) --- */
+        #admin-box {
+            background: #2c3e50; 
+            color: #fff;
+        }
+        #admin-status {
+            background: #1abc9c;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            text-align: left;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        /* NEW ADMIN LOG STYLE */
+        #admin-log {
+            background: #34495e;
+            padding: 8px;
+            border-radius: 5px;
+            min-height: 30px;
+            margin-bottom: 15px;
+            font-size: 0.85em;
+            text-align: left;
+            color: #bdc3c7;
+            border-left: 3px solid #f39c12;
+        }
+
+        .admin-tab-buttons {
+            display: flex; justify-content: center; margin-bottom: 20px; gap: 5px;
+        }
+        .admin-tab-button {
+            padding: 10px 15px; border: none; cursor: pointer; color: white;
+            font-weight: bold; border-radius: 5px 5px 0 0;
+            background-color: #34495e; /* Inactive */
+        }
+        .admin-tab-button.active {
+            background-color: #3498db !important; /* Active */
+        }
+        .admin-tab-content {
+            padding: 15px; border-radius: 0 0 8px 8px; border: 1px solid #3498db;
+            background-color: #34495e; 
+        }
+        .cheat-button {
+            padding: 10px 15px; margin: 5px; border: none; border-radius: 4px;
+            font-weight: bold; cursor: pointer; transition: all 0.1s ease;
+            box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.2);
+            position: relative; top: 0;
+        }
+        .cheat-button:active { top: 3px; box-shadow: none; }
+        .rod-cheat-button-container {
+            display: flex; flex-wrap: wrap; justify-content: center; margin-top: 10px;
+        }
+        
+        /* --- Moving Bar Minigame Styles --- */
+        #minigame-overlay { 
+            z-index: 3000; 
+            background-color: rgba(0, 0, 0, 0.9); 
+        }
+        
+        #minigame-box { 
+            width: 300px; 
+            max-width: 300px; 
+        }
+
+        #progress-bar-container {
+            width: 250px; height: 20px; background-color: #eee;
+            border-radius: 10px; margin: 15px auto; position: relative;
+            border: 1px solid #aaa;
+        }
+
+        #progress-bar {
+            height: 100%; width: 0%; background-color: #4CAF50;
+            border-radius: 10px; 
+            /* REMOVED transition: width 0.05s linear; for smoother requestAnimationFrame movement */
+        }
+
+        #target-area {
+            position: absolute; height: 100%; background-color: rgba(255, 0, 0, 0.4);
+            left: 50%; width: 20%; top: 0; border-left: 2px solid red;
+            border-right: 2px solid red;
+        }
+
+        #minigame-button {
+            padding: 10px 20px; font-size: 16px; cursor: pointer;
+            background-color: #007bff; color: white; border: none;
+            border-radius: 4px; margin-top: 10px;
+            box-shadow: 0 3px 0 0 #0056b3;
+        }
+    </style>
+</head>
+<body onload="loadGame()">
+
+<button id="cheat-trigger-button" title="Admin Panel" style="position: fixed; top: 0; left: 0; width: 20px; height: 20px; opacity: 0; cursor: pointer; z-index: 5000;"></button>
+
+<div id="game-container">
+    
+    <div id="save-load-group">
+        <button id="save-button" class="utility-button game-button" onclick="saveGame()">💾 Save</button>
+        <button id="load-button" class="utility-button game-button" onclick="loadGame(true)">🔁 Load Last Save</button>
+        <button id="reset-button" class="utility-button game-button" onclick="resetGame()">🗑️ Reset Game</button>
+    </div>
+    <h2>🌊 Modded ahhh Fishing Game 🐟</h2>
+    
+    <div id="money-display">💰 Money: $0</div>
+    
+    <div id="current-rod">
+        🎣 Current Rod: <span id="rod-name">Basic Rod</span> (Luck: <span id="rod-luck">0</span>, Catch Power Multiplier: <span id="rod-catch-power">1.00</span>)
+    </div>
+    
+    <div id="current-map-display">
+        🗺️ Location: <span id="map-name">Lakeside Pier</span>
+    </div>
+    
+    <div id="map-buttons-container">
+        </div>
+
+    <div id="button-group">
+        <button id="fishing-button" class="game-button">Click to Fish!</button>
+        <button id="shop-button" class="utility-button game-button">🛒 Open Shop</button>
+        <button id="crafting-button" class="utility-button game-button" style="background-color: #f39c12; box-shadow: 0 3px 0 0 #d39e00;" onclick="openCrafting()">🔨 Crafting</button>
+        <button id="bestiary-button" class="utility-button game-button">📚 Bestiary</button>
+    </div>
+
+    <div id="result">Waiting for a bite...</div>
+
+    <div id="inventory">
+        <h3>Inventory (Base Value)</h3>
+        <ul id="fish-list">
+            </ul>
+        <button id="sell-all-button" class="game-button" disabled>Sell All Fish</button>
+    </div>
+</div>
+
+<div id="admin-overlay" class="overlay">
+    <div id="admin-box" class="overlay-box">
+        <h3>🛠️ Ultimate Cheat Console 🤫</h3>
+
+        <div id="admin-status">
+            <strong>Game Status:</strong><br>
+            <span id="status-money">Money: $0</span><br>
+            <span id="status-rod">Rod: Basic Rod</span><br>
+            <span id="status-cooldown">Map Cooldown: Inactive</span>
+        </div>
+        
+        <div id="admin-log">Awaiting command...</div>
+
+        <div class="admin-tab-buttons">
+            <button class="admin-tab-button active" onclick="showAdminTab('money-tab')">💰 Money</button>
+            <button class="admin-tab-button" onclick="showAdminTab('rods-tab')">🎣 Rods</button>
+            <button class="admin-tab-button" onclick="showAdminTab('misc-tab')">✨ Utility</button>
+        </div>
+
+        <div id="money-tab" class="admin-tab-content">
+            <h4>💸 Money Cheats</h4>
+            <input type="number" id="money-input" placeholder="Custom Amount to ADD" min="1" max="10000000000" style="padding: 10px; width: 80%; color: #333;">
+            <div style="margin-top: 10px;">
+                <button class="cheat-button" style="background-color: #27ae60; color: white;" onclick="addMoneyCheat(100000)">+ $100k</button>
+                <button class="cheat-button" style="background-color: #f39c12; color: white;" onclick="addMoneyCheat(1000000)">+ $1M</button>
+                <button class="cheat-button" style="background-color: #c0392b; color: white;" onclick="addMoneyCheat(100000000)">+ $100M</button>
+            </div>
+            <button class="cheat-button" style="background-color: #e74c3c; color: white; margin-top: 10px; width: 80%;" onclick="addMoneyCheat()">Add Custom Amount</button>
+            <button class="cheat-button" style="background-color: #3498db; color: white; margin-top: 10px; width: 80%;" onclick="setMoneyCheat(9999999999)">💰 Set Max Money ($9.9B)</button>
+
+        </div>
+
+        <div id="rods-tab" class="admin-tab-content" style="display: none;">
+            <h4>🎣 Rod Cheats (Acquire & Equip)</h4>
+            <button class="cheat-button" style="background-color: #9b59b6; color: white; margin-bottom: 10px; width: 90%;" onclick="giveAllRodsCheat()">🚨 Give All Rods & Equip Best</button>
+            <button class="cheat-button" style="background-color: #e67e22; color: white; margin-bottom: 15px; width: 90%;" onclick="resetRodsCheat()">🗑️ Reset Rods to Basic</button>
+            <div id="admin-rod-buttons" class="rod-cheat-button-container">
+                </div>
+        </div>
+        
+        <div id="misc-tab" class="admin-tab-content" style="display: none;">
+            <h4>✨ Game Utility Cheats</h4>
+            
+            <button id="guaranteed-catch-toggle" class="cheat-button" style="background-color: #e74c3c; color: white; width: 90%; margin-bottom: 10px;" onclick="toggleGuaranteedCatchCheat(this)">🔴 OFF: Guaranteed Catch</button>
+            <button id="spawn-island-cheat" class="cheat-button" style="background-color: #ff9900; color: white; width: 90%; margin-bottom: 10px;" onclick="spawnIslandCheat()">🏝️ Force Spawn Rarity Island</button>
+            <button class="cheat-button" style="background-color: #dc3545; color: white; width: 90%;" onclick="clearInventoryCheat()">🗑️ Clear Inventory</button>
+            <button class="cheat-button" style="background-color: #17a2b8; color: white; width: 90%;" onclick="discoverAllFishCheat()">📚 Discover All Fish (Bestiary)</button>
+            <button class="cheat-button" style="background-color: #2ecc71; color: white; width: 90%;" onclick="skipMapCooldownCheat()">🚀 Instant Map Travel</button>
+
+        </div>
+
+        <button onclick="closeAdminPanel()" style="margin-top: 20px; background-color: #3498db; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 3px 0 0 #2980b9; position: relative; top: 0;">Close Console</button>
+    </div>
+</div>
+
+<div id="shop-overlay" class="overlay">
+    <div id="shop-box" class="overlay-box">
+        <h3>🛒 Fishing Rod Shop</h3>
+        <p>Buy better rods to increase your **Luck** and **Catch Power**.</p>
+        <div id="shop-items-list"></div>
+        <button class="game-button" style="background-color: #6c757d; box-shadow: 0 3px 0 0 #545b62;" onclick="closeShop()">Close Shop</button>
+    </div>
+</div>
+
+<div id="crafting-overlay" class="overlay">
+    <div id="crafting-box" class="overlay-box">
+        <h3>🔨 Rod Crafting Station</h3>
+        <p>Combine high-value fish to forge **Ultra-Rods**!</p>
+        <div id="crafting-recipes-list"></div>
+        <button class="game-button" style="background-color: #6c757d; box-shadow: 0 3px 0 0 #545b62; margin-top: 15px;" onclick="closeCrafting()">Close Crafting</button>
+    </div>
+</div>
+<div id="minigame-overlay" class="overlay"> <div id="minigame-box" class="overlay-box" style="width: 300px; max-width: 300px;">
+        <h3>Mini-Game: Reel it In!</h3>
+        <p>Click the button repeatedly when the progress bar is inside the **red target zone** to catch the fish!</p>
+        
+        <div id="progress-bar-container">
+            <div id="target-area"></div>
+            <div id="progress-bar"></div>
+        </div>
+
+        <p id="minigame-feedback"></p>
+        <button id="minigame-button" class="game-button">REEL!</button>
+    </div>
+</div>
+
+<div id="bestiary-overlay" class="overlay">
+    <div id="bestiary-box" class="overlay-box">
+        <h3>📚 The Angler's Bestiary</h3>
+        <p>Index of all known fish. Use the buttons below to filter by fishing location.</p>
+
+        <div id="bestiary-map-selection"></div>
+
+        <ul id="bestiary-list"></ul>
+        <button class="game-button" style="background-color: #6c757d; margin-top: 15px; box-shadow: 0 3px 0 0 #545b62;" onclick="closeBestiary()">Close Bestiary</button>
+    </div>
+</div>
+
+
+<script>
+    // --- Configuration: MAPS, RARITIES, FISH_NAMES, FISHING_RODS, CRAFTING_RECIPES (UPDATED) ---
+    const MAPS = [
+        { id: 'lakeside', name: 'Lakeside Pier', description: 'A diverse freshwater spot. You can catch anything from Common to Exotic fish here.' }, 
+        { id: 'reef', name: 'Coral Reef', description: 'A vibrant marine habitat with high-value fish, ranging from Common to Exotic.' }, 
+        { id: 'deepsea', name: 'Deep Sea Trench', description: 'Dark, cold waters. Home to Legendary and the rarest creatures, including Ancient fish.' }, 
+        { id: 'rarity-island', name: 'Ephemeral Isle', description: 'A mysterious island that only appears temporarily. Home to the rarest fish!', temporary: true } // NEW ISLAND MAP
+    ];
+    
+    // Total Chance is now the sum of *all* chances (450+300+150+60+30+10+5+3+2 + 1.5+0.8+0.5+0.2) = 1013
+    // --- MODIFIED RARITY DISTRIBUTION ---
+    
+    // Helper arrays for cleaner map definitions
+    const LAKESIDE_AND_REEF = ['lakeside', 'reef'];
+    const LAKESIDE_REEF_AND_DEEPSEA = ['lakeside', 'reef', 'deepsea'];
+    const DEEPSEA_AND_ISLE = ['deepsea', 'rarity-island'];
+
+    const RARITIES = [
+        // Rarity 1-4: Common to Epic - Available on Lakeside, Reef, and Deep Sea Trench (UPDATED MAPS)
+        { name: 'Common', chance: 450, colorClass: 'rarity-common', baseValue: 8, maps: LAKESIDE_REEF_AND_DEEPSEA }, // ADDED deepsea
+        { name: 'Uncommon', chance: 300, colorClass: 'rarity-uncommon', baseValue: 25, maps: LAKESIDE_REEF_AND_DEEPSEA }, // ADDED deepsea
+        { name: 'Rare', chance: 150, colorClass: 'rarity-rare', baseValue: 75, maps: LAKESIDE_AND_REEF }, 
+        { name: 'Epic', chance: 60, colorClass: 'rarity-orange', baseValue: 150, maps: LAKESIDE_AND_REEF }, 
+        
+        // Rarity 5-7: Legendary to Exotic - Available on Lakeside, Reef, and Deep Sea Trench
+        { name: 'Legendary', chance: 30, colorClass: 'rarity-legendary', baseValue: 350, maps: LAKESIDE_REEF_AND_DEEPSEA },
+        { name: 'Mythic', chance: 10, colorClass: 'rarity-mythic', baseValue: 800, maps: LAKESIDE_REEF_AND_DEEPSEA },
+        { name: 'Exotic', chance: 5, colorClass: 'rarity-exotic', baseValue: 2500, maps: LAKESIDE_REEF_AND_DEEPSEA },
+        
+        // Rarity 8-9: Secret/Apex - MODIFIED: Available on ALL main maps (Lakeside, Reef, Deep Sea)
+        { name: 'Secret', chance: 3, colorClass: 'rarity-secret', baseValue: 7500, maps: LAKESIDE_REEF_AND_DEEPSEA },
+        { name: 'Apex', chance: 2, colorClass: 'rarity-apex', baseValue: 25000, maps: LAKESIDE_REEF_AND_DEEPSEA },
+        
+        // Rarity 10-13: Ultra-Rare - Available only on Deep Sea Trench (as requested) and Ephemeral Isle (unchanged)
+        { name: 'Heavenly', chance: 1.5, colorClass: 'rarity-heavenly', baseValue: 50000, maps: DEEPSEA_AND_ISLE }, 
+        { name: 'Surreal', chance: 0.8, colorClass: 'rarity-surreal', baseValue: 150000, maps: DEEPSEA_AND_ISLE },
+        { name: 'Limited', chance: 0.5, colorClass: 'rarity-limited', baseValue: 500000, maps: DEEPSEA_AND_ISLE },
+        { name: 'Ancient', chance: 0.2, colorClass: 'rarity-ancient', baseValue: 1500000, maps: DEEPSEA_AND_ISLE },
+    ];
+    // --- END MODIFIED RARITY DISTRIBUTION ---
+
+    
+    const FISH_NAMES = {
+        'Common': [ 'Minnow', 'Trout', 'Bass', 'Sardine', 'Guppy', 'Herring', 'Small Shrimp', 'Bluegill', 'Goby', 'Anchovy', 'Chub', 'Dace', 'Sunfish' ],
+        'Uncommon': [ 'Perch', 'Carp', 'Catfish', 'Pike', 'Flounder', 'Mackerel', 'Red Snapper', 'Sockeye Salmon', 'Rockfish', 'Haddock', 'Wreckfish', 'Skipjack', 'Tilefish' ],
+        'Rare': [ 'Salmon', 'Eel', 'Cod', 'Halibut', 'Tuna', 'Dorado', 'Grouper', 'Barracuda', 'Yellowfin Tuna', 'Striped Bass', 'Abalone', 'Flying Fish', 'Plaice' ],
+        'Epic': [ 'Giant Squid', 'Wahoo', 'Marlin', 'Swordfish', 'King Salmon', 'Tiger Shark', 'Frilled Shark', 'Ocean Sunfish', 'Sailfish', 'Blue Shark', 'Giant Trevally' ],
+        'Legendary': [ 'Mahi-Mahi', 'Kingfish', 'Bluefin Tuna', 'Goliath Grouper', 'Oarfish', 'Deep Sea Snapper', 'Vampire Squid', 'Saber-Toothed Viperfish', 'Coelacanth', 'Narwhal Fish' ],
+        'Mythic': [ 'Kraken Trout', 'Sunken Shark', 'Phoenix Fish', 'Phantom Ray', 'Chrono Koi', 'Crystal Eel', 'Living Fossil', 'Astral Angler', 'Cosmic Ray', 'Shadow Leviathan' ],
+        'Exotic': [ 'Abyssal Dragonfish', 'Volcanic Angler', 'Glitterfin Tetra', 'Cosmic Whalebone', 'Shadow Walker', 'Lava Cod', 'Aurora Borealis Fish', 'Galactic Glimmer' ],
+        'Secret': [ 'Cosmic Jellyfish', 'jhawk1119', 'Void Traveler', 'The Deep One', 'The Developer', 'Ethereal Shade', 'The Silent One' ],
+        'Apex': [ 'Primordial Leviathan', 'sioltt', 'Eternal Abyss Lord', 'Celestial Keeper', 'Ocean King', 'The World Eater', 'Apex Manta' ],
+        // --- NEW FISH NAMES ---
+        'Heavenly': [ 'Angel Fin', 'Celestial Cod', 'Sky Carp', 'Aether Salmon', 'Solar Ray' ],
+        'Surreal': [ 'Warped Wrasse', 'Gravity Grouper', 'Mirage Mackerel', 'Paradox Pike', 'Dream Dorado' ],
+        'Limited': [ 'Ancient Siltfin', 'Forgotten Flounder', 'Time-Lost Tuna', 'Whispering Wahoo', 'Relic Snapper' ],
+        'Ancient': [ 'Elder Kraken', 'Primordial Leviathan Egg', 'The Founder', 'The Last Shadow', 'Cosmic Core Fish' ],
+    };
+    
+    // Rods 0-10 are Shop rods (unchanged)
+    const SHOP_RODS = [
+        { id: 'basic', name: 'Basic Rod', cost: 0, luck: 0, catchPowerMultiplier: 1.00 }, 
+        { id: 'wood', name: 'Wooden Rod', cost: 100, luck: 5, catchPowerMultiplier: 1.15 }, 
+        { id: 'steel', name: 'Steel Rod', cost: 500, luck: 10, catchPowerMultiplier: 1.30 }, 
+        { id: 'carbon', name: 'Carbon Rod', cost: 2500, luck: 20, catchPowerMultiplier: 1.50 }, 
+        { id: 'titanium', name: 'Titanium Rod', cost: 10000, luck: 40, catchPowerMultiplier: 1.80 }, 
+        { id: 'casta', name: 'The Casta', cost: 15000, luck: 100, catchPowerMultiplier: 2.50 }, 
+        { id: 'neptune', name: "Neptune's Trident", cost: 50000, luck: 250, catchPowerMultiplier: 3.50 },
+        { id: 'aether', name: 'Aether Line', cost: 150000, luck: 500, catchPowerMultiplier: 5.00 },
+        { id: 'void', name: 'Void Weave', cost: 500000, luck: 1200, catchPowerMultiplier: 7.50 },
+        { id: 'cosmic', name: 'Cosmic Thread', cost: 1500000, luck: 3000, catchPowerMultiplier: 10.00 },
+        { id: 'omega', name: 'The Omega', cost: 5000000, luck: 7500, catchPowerMultiplier: 15.00 }, 
+    ];
+
+    // Rods 11-20 are Crafting rods (NEW)
+    const CRAFT_RODS = [
+        { id: 'abyssal', name: 'Abyssal Caster', luck: 15000, catchPowerMultiplier: 20.00 }, 
+        { id: 'solar', name: 'Solaris Rod', luck: 30000, catchPowerMultiplier: 25.00 },
+        { id: 'mythic_weave', name: 'Mythic Weave', luck: 50000, catchPowerMultiplier: 35.00 },
+        { id: 'starfall', name: 'Starfall Staff', luck: 75000, catchPowerMultiplier: 45.00 },
+        { id: 'legend_bait', name: 'Legend Bait Rod', luck: 100000, catchPowerMultiplier: 60.00 },
+        { id: 'heavenly_hook', name: 'Heavenly Hook', luck: 150000, catchPowerMultiplier: 80.00 },
+        { id: 'surreal_spinner', name: 'Surreal Spinner', luck: 250000, catchPowerMultiplier: 100.00 },
+        { id: 'limited_line', name: 'Limited Edition Line', luck: 400000, catchPowerMultiplier: 150.00 },
+        { id: 'ancient_anchor', name: 'Ancient Anchor Rod', luck: 750000, catchPowerMultiplier: 250.00 },
+        { id: 'creator_rod', name: 'The Creator Rod', luck: 1500000, catchPowerMultiplier: 500.00 },
+    ];
+
+    const FISHING_RODS = [...SHOP_RODS, ...CRAFT_RODS];
+
+    // --- NEW CRAFTING RECIPES ---
+    // Requires: Array of { rarity: 'RarityName', amount: N }
+    const CRAFTING_RECIPES = [
+        { 
+            rodId: 'abyssal', 
+            name: 'Abyssal Caster', 
+            requirements: [
+                { rarity: 'Legendary', amount: 50 },
+                { rarity: 'Mythic', amount: 15 },
+                { rarity: 'Exotic', amount: 5 },
+            ] 
+        },
+        { 
+            rodId: 'solar', 
+            name: 'Solaris Rod', 
+            requirements: [
+                { rarity: 'Mythic', amount: 30 },
+                { rarity: 'Exotic', amount: 10 },
+                { rarity: 'Secret', amount: 3 },
+            ] 
+        },
+        { 
+            rodId: 'mythic_weave', 
+            name: 'Mythic Weave', 
+            requirements: [
+                { rarity: 'Exotic', amount: 20 },
+                { rarity: 'Secret', amount: 5 },
+                { rarity: 'Apex', amount: 1 },
+            ] 
+        },
+        { 
+            rodId: 'starfall', 
+            name: 'Starfall Staff', 
+            requirements: [
+                { rarity: 'Secret', amount: 10 },
+                { rarity: 'Apex', amount: 3 },
+                { rarity: 'Heavenly', amount: 1 },
+            ] 
+        },
+        { 
+            rodId: 'legend_bait', 
+            name: 'Legend Bait Rod', 
+            requirements: [
+                { rarity: 'Apex', amount: 5 },
+                { rarity: 'Heavenly', amount: 2 },
+                { rarity: 'Surreal', amount: 1 },
+            ] 
+        },
+        { 
+            rodId: 'heavenly_hook', 
+            name: 'Heavenly Hook', 
+            requirements: [
+                { rarity: 'Heavenly', amount: 10 },
+                { rarity: 'Surreal', amount: 3 },
+                { rarity: 'Limited', amount: 1 },
+            ] 
+        },
+        { 
+            rodId: 'surreal_spinner', 
+            name: 'Surreal Spinner', 
+            requirements: [
+                { rarity: 'Surreal', amount: 10 },
+                { rarity: 'Limited', amount: 3 },
+                { rarity: 'Ancient', amount: 1 },
+            ] 
+        },
+        { 
+            rodId: 'limited_line', 
+            name: 'Limited Edition Line', 
+            requirements: [
+                { rarity: 'Limited', amount: 5 },
+                { rarity: 'Ancient', amount: 1 },
+            ] 
+        },
+        { 
+            rodId: 'ancient_anchor', 
+            name: 'Ancient Anchor Rod', 
+            requirements: [
+                { rarity: 'Ancient', amount: 3 },
+                { rarity: 'Apex', amount: 50 },
+                { rarity: 'Heavenly', amount: 10 },
+                { rarity: 'Surreal', amount: 5 },
+                { rarity: 'Limited', amount: 2 },
+            ] 
+        },
+        { 
+            rodId: 'creator_rod', 
+            name: 'The Creator Rod', 
+            requirements: [
+                { rarity: 'Ancient', amount: 10 },
+                { rarity: 'Limited', amount: 10 },
+                { rarity: 'Surreal', amount: 20 },
+                { rarity: 'Heavenly', amount: 50 },
+                { rarity: 'Apex', amount: 100 },
+                { rarity: 'Secret', amount: 200 },
+            ] 
+        },
+    ];
+
+    // =================================================================
+    // >>> GAME STATE AND INITIALIZATION <<<
+    // =================================================================
+    // --- State Variables (UPDATED) ---
+    let money = 0;
+    let currentRod = FISHING_RODS[0];
+    let ownedRods = new Set(['basic']);
+    let inventory = [];
+    let minigameActive = false;
+    let minigameAnimationId; // NEW: Animation frame ID
+    let lastTime = 0; // NEW: For delta time calculation
+    let currentFishRarity = null;
+    let currentMapId = 'lakeside';
+    let mapCooldown = false;
+    let mapChangeTimer = 0;
+    let mapChangeInterval;
+    const MAP_COOLDOWN_TIME = 10;
+    let discoveredFish = new Set();
+    let isGuaranteedCatchActive = false;
+    
+    // --- NEW ISLAND STATE ---
+    let isRarityIslandActive = false;
+    let islandTimerInterval;
+    const ISLAND_SPAWN_CHANCE = 0.001; // 0.1%
+    const ISLAND_SPAWN_INTERVAL = 600000; // 10 minutes (600,000 ms)
+    
+    // --- LOCAL SAVE CONFIGURATION (RETAINED) ---
+    const LOCAL_SAVE_KEY = 'fishingGameSave';
+    let autoSaveInterval;
+
+    // --- DOM Elements (UPDATED) ---
+    const fishingButton = document.getElementById('fishing-button');
+    const sellAllButton = document.getElementById('sell-all-button');
+    const resultDiv = document.getElementById('result');
+    const fishList = document.getElementById('fish-list');
+    const minigameOverlay = document.getElementById('minigame-overlay');
+    const minigameButton = document.getElementById('minigame-button');
+    const progressBar = document.getElementById('progress-bar');
+    const targetArea = document.getElementById('target-area');
+    const moneyDisplay = document.getElementById('money-display');
+    const rodNameSpan = document.getElementById('rod-name');
+    const rodLuckSpan = document.getElementById('rod-luck');
+    const rodCatchPowerSpan = document.getElementById('rod-catch-power');
+    const shopItemsList = document.getElementById('shop-items-list');
+    const currentMapDisplay = document.getElementById('map-name');
+    const mapButtonsContainer = document.getElementById('map-buttons-container');
+    const bestiaryList = document.getElementById('bestiary-list');
+    const bestiaryMapSelection = document.getElementById('bestiary-map-selection');
+    const adminLogDiv = document.getElementById('admin-log');
+    const adminRodButtons = document.getElementById('admin-rod-buttons');
+    const statusMoney = document.getElementById('status-money');
+    const statusRod = document.getElementById('status-rod');
+    const statusCooldown = document.getElementById('status-cooldown');
+    const guaranteedCatchToggle = document.getElementById('guaranteed-catch-toggle');
+
+    // --- Minigame Constants (UPDATED SPEED) ---
+    const CATCH_THRESHOLD = 100; // Max progress needed to catch
+    const CONSTANT_BAR_SPEED = 30; // Base speed of the bar movement (Units per SECOND - increased for smooth movement)
+    const REEL_INCREMENT = 10; // Base progress gained per successful click
+    const REEL_PENALTY = 5; // Progress lost on a miss
+    
+    let progress = 50; // Current position of the bar (0-100)
+    let barDirection = 1; // 1 for right, -1 for left
+    let currentMinigameSpeed = CONSTANT_BAR_SPEED; // Speed adjusted by rarity
+
+    // =================================================================
+    // >>> CORE GAME LOGIC <<<
+    // =================================================================
+    
+    function getRodLuckModifier() {
+        return currentRod.luck / 100; // 100 luck = 1.0 modifier
+    }
+
+    function getFishRarity() {
+        const luckModifier = getRodLuckModifier();
+        
+        // Only consider rarities available on the current map
+        const availableRarities = RARITIES.filter(r => r.maps.includes(currentMapId));
+        
+        const modifiedRarities = availableRarities.map(r => {
+            let newChance = r.chance;
+
+            // Tier 1 (Common/Uncommon) - Decreases chance, but never below 1
+            if (r.name === 'Common' || r.name === 'Uncommon') {
+                newChance = r.chance - (luckModifier * 0.05);
+                return { ...r, chance: Math.max(1, newChance) };
+            }
+
+            // Tier 2 (Rare, Epic, Legendary, Mythic, Exotic, Secret, Apex) - Increases chance
+            else if (r.chance >= 2) {
+                // Rarity chance increases with luck
+                newChance = r.chance + (luckModifier / 10);
+                return { ...r, chance: newChance };
+            }
+
+            // Tier 3 (NEW Rarities: Heavenly, Surreal, Limited, Ancient) - Smaller increase, but higher base chance on island
+            else if (r.chance < 2) {
+                // Target the top 4 rarities
+                // If on the island, apply a smaller luck boost for ultra-rarities
+                newChance = r.chance + (luckModifier / 100);
+                return { ...r, chance: newChance };
+            }
+
+            return r; // Fallback for other rarities not explicitly handled (shouldn't happen with the current config)
+        });
+
+        const totalChance = modifiedRarities.reduce((sum, item) => sum + item.chance, 0);
+        
+        let random = Math.random() * totalChance;
+
+        for (const item of modifiedRarities) {
+            if (random < item.chance) {
+                // Return the original RARITIES object for the selected name
+                return RARITIES.find(r => r.name === item.name);
+            }
+            random -= item.chance;
+        }
+
+        // Fallback: return the highest chance available rarity
+        return availableRarities[0];
+    }
+
+    function getFishName(rarityName) {
+        const names = FISH_NAMES[rarityName];
+        return names[Math.floor(Math.random() * names.length)];
+    }
+
+    function startFishing() {
+        if (minigameActive) return;
+        
+        currentFishRarity = getFishRarity();
+        resultDiv.textContent = 'A bite! Reel it in!';
+        fishingButton.disabled = true;
+        sellAllButton.disabled = true;
+        toggleMapButtons(true);
+        startMiniGame(currentFishRarity.name);
+    }
+
+    function startMiniGame(rarityName) {
+        minigameActive = true;
+        minigameOverlay.style.display = 'flex';
+        document.getElementById('minigame-feedback').textContent = '';
+        progressBar.catchProgress = 0;
+        progressBar.style.width = '0%';
+        progress = 50;
+        barDirection = (Math.random() > 0.5) ? 1 : -1;
+        
+        const rarityIndex = RARITIES.findIndex(r => r.name === rarityName);
+        
+        // Target Area size scaling based on rarity (smaller for rarer fish)
+        const targetSize = Math.max(5, 20 - (rarityIndex * 1.5)); 
+        const maxLeft = 100 - targetSize - 5; // Keep it within 5% of the right edge
+        const minLeft = 5; // Keep it within 5% of the left edge
+        const targetLeft = minLeft + Math.random() * (maxLeft - minLeft);
+        targetArea.style.width = `${targetSize}%`;
+        targetArea.style.left = `${targetLeft}%`;
+        targetArea.targetLeft = targetLeft;
+        targetArea.targetRight = targetLeft + targetSize;
+
+        progressBar.catchProgress = 0;
+
+        // Speed scaling based on rarity (faster bar for higher rarity)
+        const speedMultiplier = 1 + (rarityIndex * 0.15); 
+        currentMinigameSpeed = CONSTANT_BAR_SPEED * speedMultiplier;
+
+        minigameButton.onclick = reelAction;
+        
+        // --- SMOOTH ANIMATION CHANGE ---
+        lastTime = performance.now();
+        minigameLoop(lastTime);
+        // --- END SMOOTH ANIMATION CHANGE ---
+    }
+    
+    // --- NEW: Animation Loop for Smooth Movement ---
+    function minigameLoop(timestamp) {
+        if (!minigameActive) return;
+
+        // Calculate time passed since the last frame in SECONDS
+        const deltaTime = (timestamp - lastTime) / 1000; 
+        lastTime = timestamp;
+
+        // Update bar position using delta time
+        updateBar(currentMinigameSpeed, deltaTime);
+
+        // Request next frame
+        minigameAnimationId = requestAnimationFrame(minigameLoop);
+    }
+
+    // --- MODIFIED: updateBar to use speed (units/sec) and deltaTime (seconds) ---
+    function updateBar(speed, deltaTime) {
+        // Move bar by speed * deltaTime (e.g., 30 units/sec * 0.016 sec = 0.48 units)
+        progress += speed * barDirection * deltaTime;
+
+        if (progress >= 100) {
+            barDirection = -1;
+            progress = 100;
+        } else if (progress <= 0) {
+            barDirection = 1;
+            progress = 0;
+        }
+
+        progressBar.style.width = `${progress}%`;
+    }
+    // --- END MODIFIED updateBar ---
+
+    function reelAction() {
+        if (!minigameActive) return;
+
+        if (isGuaranteedCatchActive) {
+            progressBar.catchProgress = CATCH_THRESHOLD;
+            endMiniGame(true);
+            return;
+        }
+
+        const currentProgress = progress;
+        const targetLeft = targetArea.targetLeft;
+        const targetRight = targetArea.targetRight;
+
+        // --- FIX APPLIED HERE: ADDING FORGIVENESS BUFFER ---
+        // Adds a 5% buffer on either side of the visual red zone to be more forgiving
+        const FORGIVENESS_BUFFER = 5; 
+        const isTargeted = currentProgress >= (targetLeft - FORGIVENESS_BUFFER) && currentProgress <= (targetRight + FORGIVENESS_BUFFER);
+        // ---------------------------------------------------
+
+        if (isTargeted) {
+            const actualProgressIncrease = REEL_INCREMENT * currentRod.catchPowerMultiplier;
+            progressBar.catchProgress = (progressBar.catchProgress || 0) + actualProgressIncrease;
+            
+            document.getElementById('minigame-feedback').textContent = `HIT! Progress: ${Math.min(100, progressBar.catchProgress.toFixed(0))}% (+${actualProgressIncrease.toFixed(1)})`;
+
+            if (progressBar.catchProgress >= CATCH_THRESHOLD) {
+                endMiniGame(true);
+            }
+        } else {
+            const actualProgressDecrease = REEL_PENALTY;
+            progressBar.catchProgress = Math.max(0, (progressBar.catchProgress || 0) - actualProgressDecrease);
+
+            if (progressBar.catchProgress <= 0) {
+                document.getElementById('minigame-feedback').textContent = `FAILED! The fish got away! Progress: 0% (-${actualProgressDecrease})`
+            } else {
+                document.getElementById('minigame-feedback').textContent = `MISS! Progress: ${progressBar.catchProgress.toFixed(0)}% (-${actualProgressDecrease})`
+            }
+        }
+    }
+
+    function endMiniGame(success) {
+        minigameActive = false;
+        // --- SMOOTH ANIMATION CHANGE ---
+        cancelAnimationFrame(minigameAnimationId);
+        // --- END SMOOTH ANIMATION CHANGE ---
+        minigameOverlay.style.display = 'none';
+
+        fishingButton.disabled = false;
+        if (inventory.length > 0) {
+            sellAllButton.disabled = false;
+        }
+        toggleMapButtons(false);
+        
+        if (success) {
+            catchFish(currentFishRarity);
+        } else {
+            resultDiv.textContent = `The ${currentFishRarity.name} fish got away! Try again.`;
+        }
+
+        currentFishRarity = null;
+        saveGame();
+    }
+
+    function catchFish(rarity) {
+        const fishName = getFishName(rarity.name);
+        const baseValue = rarity.baseValue;
+        const fishWeight = (Math.random() * 5 + 1).toFixed(2); // 1.00kg to 6.00kg
+        const valueModifier = 1 + (Math.random() * 0.5) - 0.25; // Random value modifier (-25% to +25%)
+        const actualValue = baseValue * fishWeight * valueModifier;
+        const valueClass = actualValue > baseValue * fishWeight ? 'value-high' : 'value-low';
+        
+        const fish = { name: fishName, rarity: rarity.name, colorClass: rarity.colorClass, actualValue: actualValue, baseValue: baseValue, weight: fishWeight, map: currentMapId };
+
+        inventory.push(fish);
+        discoveredFish.add(fish.name); // Add to discovered list
+
+        const message = `You successfully caught a <span class="${currentFishRarity.colorClass}">${currentFishRarity.name} ${fishName}</span>! (${fish.weight}kg, Value: <span class="${valueClass}">$${actualValue.toFixed(2)}</span>)`;
+        resultDiv.innerHTML = message;
+        
+        updateInventoryDisplay();
+    }
+
+    function sellAllFish() {
+        let totalEarnings = 0;
+        inventory.forEach(fish => {
+            totalEarnings += fish.actualValue;
+        });
+
+        money += totalEarnings;
+        inventory = [];
+        
+        resultDiv.textContent = `Sold all fish for $${totalEarnings.toLocaleString()}!`;
+        sellAllButton.disabled = true;
+
+        updateMoneyDisplay();
+        updateInventoryDisplay();
+        saveGame();
+    }
+
+    // =================================================================
+    // >>> DISPLAY & UTILITY FUNCTIONS (UNCHANGED) <<<
+    // =================================================================
+    function updateMoneyDisplay() {
+        moneyDisplay.textContent = `💰 Money: $${money.toLocaleString()}`;
+        if (statusMoney) statusMoney.textContent = `Money: $${money.toLocaleString()}`;
+    }
+
+    function updateRodDisplay() {
+        rodNameSpan.textContent = currentRod.name;
+        rodLuckSpan.textContent = currentRod.luck.toLocaleString();
+        rodCatchPowerSpan.textContent = currentRod.catchPowerMultiplier.toFixed(2);
+        if (statusRod) statusRod.textContent = `Rod: ${currentRod.name}`;
+    }
+
+    function updateInventoryDisplay() {
+        let listHTML = '';
+        let totalValue = 0;
+        const fishCount = {}; // To group and sum fish
+        const inventoryByRarity = {}; // For ordered display
+
+        // Initialize inventoryByRarity for all rarities for consistent ordering
+        RARITIES.forEach(r => inventoryByRarity[r.name] = []);
+        
+        // Group fish by name/rarity for display
+        inventory.forEach(fish => {
+            const key = `${fish.rarity}:${fish.name}`;
+            if (!fishCount[key]) {
+                fishCount[key] = { name: fish.name, rarity: fish.rarity, colorClass: fish.colorClass, count: 0, totalValue: 0, baseValue: fish.baseValue // Used for crafting check
+                };
+            }
+            fishCount[key].count++;
+            fishCount[key].totalValue += fish.actualValue;
+        });
+
+        // Re-calculate total value and populate rarity groups
+        for (const key in fishCount) {
+            const item = fishCount[key];
+            totalValue += item.totalValue;
+            if(inventoryByRarity[item.rarity]) {
+                inventoryByRarity[item.rarity].push(item);
+            }
+        }
+
+        // Generate list HTML
+        RARITIES.forEach(rarity => {
+            if (inventoryByRarity[rarity.name] && inventoryByRarity[rarity.name].length > 0) {
+                listHTML += `<li><strong>--- ${rarity.name} Fish ---</strong></li>`;
+                inventoryByRarity[rarity.name].sort((a, b) => b.totalValue - a.totalValue).forEach(item => {
+                    listHTML += `
+                        <li class="${item.colorClass}">
+                            ${item.name} x${item.count} 
+                            (Total Value: $${item.totalValue.toFixed(2)})
+                            <span style="font-size: 0.8em; color: #555;">[Base Value: $${item.baseValue.toLocaleString()}]</span>
+                        </li>
+                    `;
+                });
+            }
+        });
+
+        fishList.innerHTML = listHTML || '<li>No fish caught yet!</li>';
+
+        if (inventory.length > 0 && !mapCooldown) {
+            sellAllButton.disabled = false;
+        } else {
+            sellAllButton.disabled = true;
+        }
+    }
+
+    function generateMapButtons() {
+        const availableMaps = MAPS.filter(map => !map.temporary || (map.temporary && isRarityIslandActive));
+        
+        const buttonsHTML = availableMaps.map(map => {
+            const isActive = map.id === currentMapId;
+            const isIsland = map.id === 'rarity-island';
+            let classes = `game-button map-select-button ${isActive ? 'active' : ''}`;
+            if (isIsland) classes += ' map-select-button-island'; // Specific island class
+
+            return `<button 
+                        id="map-button-${map.id}"
+                        class="${classes}" 
+                        data-map-id="${map.id}"
+                        onclick="initiateMapChange('${map.id}')"
+                        ${isActive ? 'disabled' : ''}>
+                        ${map.name}
+                    </button>`;
+        }).join('');
+
+        mapButtonsContainer.innerHTML = buttonsHTML;
+    }
+
+    function toggleMapButtons(isDisabled) {
+        document.querySelectorAll('.map-select-button').forEach(button => {
+            const mapId = button.getAttribute('data-map-id');
+            const isActive = mapId === currentMapId;
+
+            if (mapCooldown) {
+                // If cooldown is active, simply disable all map buttons until the cooldown ends.
+                button.disabled = true;
+            } else {
+                // If no cooldown, disable the active map, enable others.
+                button.disabled = isDisabled || isActive;
+            }
+        });
+    }
+
+    // --- NEW: Island Spawning Logic ---
+    function spawnRarityIsland() {
+        if (isRarityIslandActive) return;
+        isRarityIslandActive = true;
+        resultDiv.innerHTML = '🚨 **The Ephemeral Isle has appeared!** You have 10 minutes to fish there before it vanishes.';
+        generateMapButtons(); // Re-render map buttons to show the island
+        saveGame();
+        
+        // Set a timer for the island to disappear (10 minutes)
+        setTimeout(removeRarityIsland, 600000);
+    }
+
+    function removeRarityIsland() {
+        if (!isRarityIslandActive) return;
+        isRarityIslandActive = false;
+        
+        if (currentMapId === 'rarity-island') {
+            // Force player back to the lake if they were on the island
+            setMap('lakeside');
+            resultDiv.textContent = 'The Ephemeral Isle has vanished! You have been returned to Lakeside Pier.';
+        } else {
+            resultDiv.textContent = 'The Ephemeral Isle has vanished.';
+        }
+        
+        generateMapButtons(); // Re-render map buttons to remove the island button
+        saveGame();
+    }
+
+    function startIslandTimer() {
+        // Clear any existing timer to prevent multiple from running
+        clearInterval(islandTimerInterval);
+
+        // Check for island every 10 minutes
+        islandTimerInterval = setInterval(() => {
+            if (!isRarityIslandActive && Math.random() < ISLAND_SPAWN_CHANCE * 10) { 
+                // Multiply chance for 10-minute interval spawn
+                spawnRarityIsland();
+            }
+        }, ISLAND_SPAWN_INTERVAL);
+
+        // If island was active on load, re-establish the vanish timer
+        if (isRarityIslandActive) {
+            // In a real game, you'd save the vanish time, but for this simulation, we'll just set a new full 10-minute timer.
+            setTimeout(removeRarityIsland, 600000);
+        }
+    }
+
+    // --- Map Travel Logic (CORRECTED) ---
+    function initiateMapChange(mapId) {
+        if (mapId === currentMapId) {
+            // If the user clicks the map they are currently on or are already traveling to, do nothing.
+            return;
+        }
+
+        // 1. Block map change if a cooldown is active (PREVENTS TRAVELING ERROR)
+        if (mapCooldown) {
+            resultDiv.textContent = `Already traveling! Please wait ${mapChangeTimer} seconds.`;
+            return; 
+        }
+
+        // 2. Inventory check and sell logic
+        if (inventory.length > 0) {
+            if (!confirm(`You currently have ${inventory.length} fish in your inventory. They will be sold automatically before changing location. Continue?`)) {
+                return;
+            }
+            sellAllFish();
+        }
+        
+        // 3. Start Cooldown/Travel
+        mapCooldown = true;
+        mapChangeTimer = MAP_COOLDOWN_TIME;
+        
+        // Temporarily set the map name display to show the destination is in transit
+        currentMapDisplay.textContent = `Traveling to ${MAPS.find(m => m.id === mapId).name}...`;
+
+        // Disable all map buttons and fishing/sell buttons
+        fishingButton.disabled = true;
+        toggleMapButtons(true); // Disable all map buttons
+        sellAllButton.disabled = true;
+        
+        resultDiv.textContent = `Changing location to ${MAPS.find(m => m.id === mapId).name}...`;
+
+        // Start the countdown
+        mapChangeInterval = setInterval(() => {
+            mapChangeTimer--;
+            updateMapButtonText(mapId);
+            statusCooldown.textContent = `Map Cooldown: ${mapChangeTimer}s`;
+
+            if (mapChangeTimer <= 0) {
+                clearInterval(mapChangeInterval);
+                mapCooldown = false;
+                
+                // Finalize travel
+                setMap(mapId);
+                fishingButton.disabled = false;
+                toggleMapButtons(false);
+                if (inventory.length > 0) sellAllButton.disabled = false;
+                resultDiv.textContent = `Arrived at ${MAPS.find(m => m.id === mapId).name}! Start fishing!`;
+                statusCooldown.textContent = 'Map Cooldown: Inactive';
+                saveGame();
+            }
+        }, 1000);
+    }
+
+    function updateMapButtonText(targetMapId) {
+        document.querySelectorAll('.map-select-button').forEach(button => {
+            const mapId = button.getAttribute('data-map-id');
+            const mapName = MAPS.find(m => m.id === mapId).name;
+
+            if (mapCooldown && mapId === targetMapId) {
+                button.textContent = `Traveling... ${mapChangeTimer}s`;
+            } else if (mapId !== currentMapId) {
+                // Restore original button text if travel is finished or if it's an unselected button
+                button.textContent = mapName;
+            } else if (mapId === currentMapId && !mapCooldown) {
+                // Ensure the current active map is just the name when not traveling
+                button.textContent = mapName;
+            }
+        });
+    }
+
+    function setMap(mapId) {
+        currentMapId = mapId;
+        const map = MAPS.find(m => m.id === mapId);
+        currentMapDisplay.textContent = map.name;
+        
+        // Reset active class for all buttons and set active for the new map
+        document.querySelectorAll('.map-select-button').forEach(button => {
+            button.classList.remove('active');
+            button.textContent = MAPS.find(m => m.id === button.getAttribute('data-map-id')).name; // Reset text
+        });
+
+        document.querySelector(`.map-select-button[data-map-id="${currentMapId}"]`)?.classList.add('active');
+    }
+
+    // =================================================================
+    // >>> INVENTORY, SHOP, CRAFTING, BESTIARY (UNCHANGED) <<<
+    // =================================================================
+
+    function openShop() {
+        document.getElementById('shop-overlay').style.display = 'flex';
+        updateShopDisplay();
+    }
+
+    function closeShop() {
+        document.getElementById('shop-overlay').style.display = 'none';
+    }
+
+    function updateShopDisplay() {
+        // Filter out the starting basic rod (cost 0)
+        const purchasableRods = SHOP_RODS.filter(rod => rod.id !== 'basic');
+
+        shopItemsList.innerHTML = purchasableRods.map(rod => {
+            const isOwned = ownedRods.has(rod.id);
+            const isEquipped = currentRod.id === rod.id;
+            const canAfford = money >= rod.cost;
+            
+            let buttonHTML;
+            const baseClass = 'game-button';
+            const buttonStyle = 'padding: 8px 12px; font-size: 14px; margin-left: 10px;';
+
+            if (isEquipped) {
+                buttonHTML = `<button disabled class="${baseClass}" style="${buttonStyle} background-color: #4CAF50;">Equipped</button>`;
+            } else if (isOwned) {
+                buttonHTML = `<button onclick="equipRod('${rod.id}')" class="${baseClass}" style="${buttonStyle} background-color: #007bff;">Equip</button>`;
+            } else if (canAfford) {
+                buttonHTML = `<button onclick="buyRod('${rod.id}', ${rod.cost})" class="${baseClass}" style="${buttonStyle} background-color: #ffc107; color: #333; box-shadow: 0 4px 0 0 #d39e00, 0 6px 10px rgba(0, 0, 0, 0.1);">Buy ($${rod.cost.toLocaleString()})</button>`;
+            } else {
+                buttonHTML = `<button disabled class="${baseClass}" style="${buttonStyle} background-color: #dc3545;">Can't Afford ($${rod.cost.toLocaleString()})</button>`;
+            }
+
+            return `
+                <div style="border: 1px solid #ccc; padding: 10px; margin: 10px; border-radius: 8px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${rod.name}</strong> <span style="float: right; margin-left: 5px;">${isEquipped ? '⭐' : ''}</span><br>
+                        <small>Luck: +${rod.luck.toLocaleString()} | Catch Multiplier: x${rod.catchPowerMultiplier.toFixed(2)}</small>
+                    </div>
+                    ${buttonHTML}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function buyRod(rodId, cost) {
+        if (money >= cost) {
+            money -= cost;
+            ownedRods.add(rodId);
+            currentRod = FISHING_RODS.find(r => r.id === rodId);
+            updateMoneyDisplay();
+            updateRodDisplay();
+            updateShopDisplay();
+            resultDiv.textContent = `Purchased and equipped ${currentRod.name}!`;
+            saveGame();
+        } else {
+            alert("Not enough money!");
+        }
+    }
+
+    function equipRod(rodId) {
+        const rod = FISHING_RODS.find(r => r.id === rodId);
+        if (ownedRods.has(rodId)) {
+            currentRod = rod;
+            updateRodDisplay();
+            updateShopDisplay();
+            updateCraftingDisplay();
+            resultDiv.textContent = `Equipped ${currentRod.name}!`;
+            saveGame();
+        }
+    }
+
+    // --- Crafting Functions (NEW) ---
+    function openCrafting() {
+        document.getElementById('crafting-overlay').style.display = 'flex';
+        updateCraftingDisplay();
+    }
+
+    function closeCrafting() {
+        document.getElementById('crafting-overlay').style.display = 'none';
+    }
+
+    function getInventoryRarityCounts() {
+        const counts = {};
+        inventory.forEach(fish => {
+            counts[fish.rarity] = (counts[fish.rarity] || 0) + 1;
+        });
+        return counts;
+    }
+
+    function updateCraftingDisplay() {
+        const craftingRecipesList = document.getElementById('crafting-recipes-list');
+        const rarityCounts = getInventoryRarityCounts();
+        
+        craftingRecipesList.innerHTML = CRAFTING_RECIPES.map(recipe => {
+            const rod = FISHING_RODS.find(r => r.id === recipe.rodId);
+            const isOwned = ownedRods.has(rod.id);
+            const isEquipped = currentRod.id === rod.id;
+            
+            let canCraft = true;
+            
+            const materialsHTML = `
+                <ul class="crafting-materials-list">
+                    <strong>Materials Required:</strong>
+                    ${recipe.requirements.map(req => {
+                        const owned = rarityCounts[req.rarity] || 0;
+                        const needed = req.amount;
+                        const isMissing = owned < needed;
+                        if (isMissing) canCraft = false;
+
+                        return `
+                            <li class="${isMissing ? 'missing' : 'owned'}">
+                                ${req.rarity}: ${owned} / ${needed}
+                            </li>
+                        `;
+                    }).join('')}
+                </ul>
+            `;
+
+            let buttonHTML;
+
+            if (isEquipped) {
+                buttonHTML = `<button disabled class="game-button" style="background-color: #4CAF50; padding: 8px 12px;">Equipped</button>`;
+            } else if (isOwned) {
+                buttonHTML = `<button onclick="equipRod('${rod.id}')" class="game-button" style="background-color: #007bff; padding: 8px 12px;">Equip</button>`;
+            } else if (canCraft) {
+                buttonHTML = `<button id="craft-button" class="game-button" onclick="craftRod('${rod.id}')">Forge ${rod.name}!</button>`;
+            } else {
+                buttonHTML = `<button disabled class="game-button" style="background-color: #dc3545; padding: 8px 12px;">Missing Materials</button>`;
+            }
+
+            return `
+                <div class="crafting-recipe">
+                    <h4>🔨 ${rod.name} (${isOwned ? 'OWNED' : 'UNOWNED'})</h4>
+                    <p style="margin: 0; font-size: 0.9em;">Luck: +${rod.luck.toLocaleString()} | Catch Multiplier: x${rod.catchPowerMultiplier.toFixed(2)}</p>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        ${materialsHTML}
+                        <div class="craft-button-group">
+                            ${buttonHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function craftRod(rodId) {
+        const recipe = CRAFTING_RECIPES.find(r => r.rodId === rodId);
+        if (!recipe) return;
+
+        const rarityCounts = getInventoryRarityCounts();
+        let canCraft = true;
+
+        // 1. Check requirements again (important security measure)
+        recipe.requirements.forEach(req => {
+            if ((rarityCounts[req.rarity] || 0) < req.amount) {
+                canCraft = false;
+            }
+        });
+
+        if (canCraft) {
+            // 2. Deduct materials from inventory
+            recipe.requirements.forEach(req => {
+                let amountToDeduct = req.amount;
+                inventory = inventory.filter(fish => {
+                    if (fish.rarity === req.rarity && amountToDeduct > 0) {
+                        amountToDeduct--;
+                        return false; // Remove this fish from inventory
+                    }
+                    return true; // Keep other fish
+                });
+            });
+
+            // 3. Give the rod and equip it
+            ownedRods.add(rodId);
+            const newRod = FISHING_RODS.find(r => r.id === rodId);
+            currentRod = newRod;
+            
+            resultDiv.textContent = `Successfully forged and equipped the ${newRod.name}!`;
+            
+            // 4. Update displays
+            updateMoneyDisplay();
+            updateRodDisplay();
+            updateInventoryDisplay();
+            updateCraftingDisplay();
+            saveGame();
+        } else {
+            alert("Missing required materials to craft this rod.");
+        }
+    }
+
+    // --- Bestiary Functions (NEW) ---
+    function openBestiary() {
+        document.getElementById('bestiary-overlay').style.display = 'flex';
+        updateBestiaryMapSelection();
+        updateBestiaryDisplay(currentMapId);
+    }
+
+    function closeBestiary() {
+        document.getElementById('bestiary-overlay').style.display = 'none';
+    }
+
+    function updateBestiaryMapSelection() {
+        const activeMaps = MAPS.filter(map => !map.temporary || (map.temporary && isRarityIslandActive));
+        
+        const selectionHTML = activeMaps.map(map => 
+            `<button class="utility-button game-button map-select-button" 
+                     data-map-id="${map.id}" 
+                     onclick="updateBestiaryDisplay('${map.id}')" 
+                     style="margin: 5px; background-color: #3498db; box-shadow: 0 3px 0 0 #2980b9;">
+                ${map.name}
+            </button>`
+        ).join('');
+        
+        bestiaryMapSelection.innerHTML = selectionHTML;
+
+        // Ensure the active map button is highlighted when the bestiary opens
+        document.querySelector(`#bestiary-map-selection button[data-map-id="${currentMapId}"]`).style.backgroundColor = '#27ae60';
+        document.querySelector(`#bestiary-map-selection button[data-map-id="${currentMapId}"]`).style.boxShadow = '0 3px 0 0 #229954';
+    }
+
+    function updateBestiaryDisplay(mapId) {
+        const bestiaryList = document.getElementById('bestiary-list');
+
+        // Update the button styles
+        document.querySelectorAll('#bestiary-map-selection button').forEach(btn => {
+            btn.style.backgroundColor = '#3498db';
+            btn.style.boxShadow = '0 3px 0 0 #2980b9';
+        });
+        document.querySelector(`#bestiary-map-selection button[data-map-id="${mapId}"]`).style.backgroundColor = '#27ae60';
+        document.querySelector(`#bestiary-map-selection button[data-map-id="${mapId}"]`).style.boxShadow = '0 3px 0 0 #229954';
+
+        let listHTML = '';
+        
+        // Loop through all rarities
+        RARITIES.forEach(rarity => {
+            // Check if the rarity is catchable in the selected map
+            if (rarity.maps.includes(mapId)) {
+                let fishInRarityHTML = '';
+                let allDiscoveredInRarity = true;
+
+                // Loop through all fish names for that rarity
+                FISH_NAMES[rarity.name].forEach(fishName => {
+                    const isDiscovered = discoveredFish.has(fishName);
+                    
+                    if (!isDiscovered) {
+                        allDiscoveredInRarity = false;
+                    }
+
+                    fishInRarityHTML += `
+                        <li style="margin-left: 15px; font-size: 0.9em; color: ${isDiscovered ? 'inherit' : '#aaa'};">
+                            ${isDiscovered ? '✅' : '❓'} ${fishName}
+                        </li>
+                    `;
+                });
+
+                // Add the rarity header
+                listHTML += `
+                    <li style="margin-top: 10px; font-weight: bold; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">
+                        <span class="${rarity.colorClass}">${rarity.name}</span> (Value: $${rarity.baseValue.toLocaleString()}) - ${allDiscoveredInRarity ? 'COMPLETE' : 'INCOMPLETE'}
+                        <ul style="list-style: none; padding-left: 0;">
+                            ${fishInRarityHTML}
+                        </ul>
+                    </li>
+                `;
+            }
+        });
+
+        bestiaryList.innerHTML = listHTML || '<li>No known fish for this location (Error).</li>';
+    }
+
+    // =================================================================
+    // >>> SAVE / LOAD / RESET STATE (UNCHANGED) <<<
+    // =================================================================
+    function getInitialState() {
+        // Reset all primary state variables
+        money = 0;
+        currentRod = FISHING_RODS[0];
+        ownedRods = new Set(['basic']);
+        inventory = [];
+        currentMapId = 'lakeside';
+        discoveredFish = new Set();
+        isRarityIslandActive = false; // NEW
+
+        // Clear intervals/timeouts
+        clearInterval(mapChangeInterval);
+        clearInterval(islandTimerInterval);
+        mapCooldown = false;
+        mapChangeTimer = 0;
+        isGuaranteedCatchActive = false;
+
+        // Reset minigame state
+        minigameActive = false;
+        cancelAnimationFrame(minigameAnimationId); // Use cancelAnimationFrame
+        minigameOverlay.style.display = 'none';
+    }
+
+    function saveGame() {
+        const gameState = {
+            money: money,
+            currentRodId: currentRod.id,
+            ownedRods: Array.from(ownedRods),
+            inventory: inventory,
+            currentMapId: currentMapId,
+            discoveredFish: Array.from(discoveredFish),
+            isRarityIslandActive: isRarityIslandActive // NEW
+        };
+        try {
+            localStorage.setItem(LOCAL_SAVE_KEY, JSON.stringify(gameState));
+        } catch (e) {
+            console.error("Error saving game state:", e);
+        }
+    }
+
+    function startAutoSave() {
+        clearInterval(autoSaveInterval);
+        autoSaveInterval = setInterval(() => {
+            saveGame();
+        }, 15000);
+    }
+
+    function loadGame(manualLoad = false) {
+        const savedJson = localStorage.getItem(LOCAL_SAVE_KEY);
+        if (savedJson) {
+            try {
+                const gameState = JSON.parse(savedJson);
+                
+                money = gameState.money || 0;
+                currentRod = FISHING_RODS.find(r => r.id === gameState.currentRodId) || FISHING_RODS[0];
+                ownedRods = new Set(gameState.ownedRods || ['basic']);
+                inventory = gameState.inventory || [];
+                currentMapId = gameState.currentMapId || 'lakeside';
+                discoveredFish = new Set(gameState.discoveredFish || []);
+                isRarityIslandActive = gameState.isRarityIslandActive || false; // NEW
+                
+                // Reset temporary states
+                clearInterval(mapChangeInterval);
+                mapCooldown = false;
+                mapChangeTimer = 0;
+                isGuaranteedCatchActive = false;
+                cancelAnimationFrame(minigameAnimationId); // Clear minigame animation on load
+
+                updateMoneyDisplay();
+                updateRodDisplay();
+                updateInventoryDisplay();
+                generateMapButtons();
+                setMap(currentMapId);
+                toggleMapButtons(false);
+                
+                if (manualLoad) {
+                    alert("Game loaded successfully!");
+                } else {
+                    console.log("Game loaded from local storage.");
+                }
+
+            } catch (e) {
+                console.error("Error loading game state:", e);
+                if (manualLoad) {
+                    alert("Error loading game. Starting new game.");
+                }
+                resetGame(false);
+            }
+        } else {
+            if (manualLoad) {
+                alert("No saved game found. Starting new game.");
+            } else {
+                console.log("No saved game found. Starting new game.");
+            }
+            resetGame(false); // Initialize game state if no save found
+        }
+        
+        startAutoSave();
+        startIslandTimer();
+    }
+
+    function resetGame(confirmRequired = true) {
+        if (confirmRequired && !confirm("Are you sure you want to reset all game progress? This cannot be undone.")) {
+            return;
+        }
+
+        getInitialState(); // Reset state variables
+        localStorage.removeItem(LOCAL_SAVE_KEY); // Clear local storage
+        
+        // Re-initialize UI
+        updateMoneyDisplay();
+        updateRodDisplay();
+        updateInventoryDisplay();
+        generateMapButtons();
+        setMap('lakeside');
+        toggleMapButtons(false);
+        resultDiv.textContent = 'Welcome to the Ultimate Fishing Game! Try catching your first fish.';
+        document.getElementById('admin-overlay').style.display = 'none';
+        
+        // Restart timers
+        startIslandTimer();
+    }
+
+
+    // =================================================================
+    // >>> ADMIN / CHEAT FUNCTIONS (UNCHANGED) <<<
+    // =================================================================
+    let adminOpenCount = 0;
+    let isAdminOpen = false;
+    
+    function openAdminPanel() {
+        adminOpenCount++;
+        if (adminOpenCount >= 3) {
+            document.getElementById('admin-overlay').style.display = 'flex';
+            isAdminOpen = true;
+            adminOpenCount = 0; // Reset for next time
+            adminLog('Admin Panel Unlocked!', '#2ecc71');
+            generateAdminRodButtons();
+            showAdminTab('money-tab');
+        } else {
+            console.log(`Click the trigger ${3 - adminOpenCount} more times to open Admin Panel.`);
+        }
+    }
+
+    function closeAdminPanel() {
+        document.getElementById('admin-overlay').style.display = 'none';
+        isAdminOpen = false;
+    }
+
+    function adminLog(message, color = '#f39c12') {
+        if (isAdminOpen) {
+            adminLogDiv.innerHTML = `<span style="color: ${color}; font-weight: bold;">[LOG]</span> ${message}`;
+        }
+    }
+
+    function showAdminTab(tabId) {
+        document.querySelectorAll('.admin-tab-content').forEach(tab => {
+            tab.style.display = 'none';
+        });
+        document.getElementById(tabId).style.display = 'block';
+
+        document.querySelectorAll('.admin-tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelector(`.admin-tab-button[onclick="showAdminTab('${tabId}')"]`).classList.add('active');
+        
+        // Update status display
+        if (mapCooldown) {
+            statusCooldown.textContent = `Map Cooldown: ${mapChangeTimer}s`;
+        } else {
+            statusCooldown.textContent = 'Map Cooldown: Inactive';
+        }
+    }
+
+    // --- Money Cheats ---
+    function addMoneyCheat(presetAmount) {
+        const customInput = document.getElementById('money-input');
+        const amount = presetAmount || parseInt(customInput.value);
+
+        if (amount && amount > 0) {
+            money += amount;
+            updateMoneyDisplay();
+            saveGame();
+            adminLog(`Added $${amount.toLocaleString()} to balance.`);
+            customInput.value = '';
+        } else if (presetAmount) {
+            adminLog('An error occurred during preset money cheat.', 'red');
+        } else if (!presetAmount) {
+            adminLog('Please enter a valid positive number.');
+        }
+    }
+
+    function setMoneyCheat(amount) {
+        money = amount;
+        updateMoneyDisplay();
+        adminLog(`Balance set to maximum: $${amount.toLocaleString()}.`);
+    }
+    
+    // --- Rod Cheats (MODIFIED to include ALL rods) ---
+    function generateAdminRodButtons() {
+        // Use the combined FISHING_RODS array
+        adminRodButtons.innerHTML = FISHING_RODS.map(rod => {
+            const isOwned = ownedRods.has(rod.id);
+            const isCurrent = currentRod.id === rod.id;
+            
+            let action = isCurrent ? 'Equipped' : (isOwned ? 'Equip' : 'Give');
+            let color = isCurrent ? '#4CAF50' : (isOwned ? '#9b59b6' : '#2ecc71');
+            let boxShadow = isCurrent ? '0 2px 0 0 #388e3c' : (isOwned ? '0 3px 0 0 #8e44ad' : '0 3px 0 0 #27ae60');
+            let onclick = isCurrent ? '' : (isOwned ? `equipRod('${rod.id}'); closeAdminPanel()` : `giveRodCheat('${rod.id}')`);
+
+            return `
+                <button class="cheat-button" style="background-color: ${color}; color: white; box-shadow: ${boxShadow};" onclick="${onclick}" ${isCurrent ? 'disabled' : ''}>
+                    ${action}: ${rod.name}
+                </button>
+            `;
+        }).join('');
+    }
+
+    function giveRodCheat(rodId) {
+        const rod = FISHING_RODS.find(r => r.id === rodId);
+        if (rod) {
+            ownedRods.add(rodId);
+            currentRod = rod;
+            updateRodDisplay();
+            updateShopDisplay();
+            updateCraftingDisplay();
+            generateAdminRodButtons(); // Refresh buttons
+            adminLog(`Acquired and equipped rod: ${rod.name}`);
+            saveGame();
+        }
+    }
+
+    function giveAllRodsCheat() {
+        FISHING_RODS.forEach(rod => {
+            ownedRods.add(rod.id);
+        });
+        // Equip the best rod (the last one in the list, "The Creator Rod")
+        currentRod = FISHING_RODS[FISHING_RODS.length - 1]; 
+        updateRodDisplay();
+        updateShopDisplay();
+        updateCraftingDisplay();
+        generateAdminRodButtons();
+        adminLog(`Gave all ${FISHING_RODS.length} rods and equipped ${currentRod.name}!`);
+        saveGame();
+    }
+
+    function resetRodsCheat() {
+        ownedRods = new Set(['basic']);
+        currentRod = FISHING_RODS[0];
+        updateRodDisplay();
+        updateShopDisplay();
+        updateCraftingDisplay();
+        generateAdminRodButtons();
+        adminLog('All custom rods removed. Equipped Basic Rod.');
+        saveGame();
+    }
+
+    // --- Utility Cheats ---
+    function toggleGuaranteedCatchCheat(button) {
+        isGuaranteedCatchActive = !isGuaranteedCatchActive;
+        if (isGuaranteedCatchActive) {
+            button.style.backgroundColor = '#2ecc71';
+            button.textContent = '🟢 ON: Guaranteed Catch';
+            adminLog('Guaranteed Catch ON. All minigames are instant wins.', '#2ecc71');
+        } else {
+            button.style.backgroundColor = '#e74c3c';
+            button.textContent = '🔴 OFF: Guaranteed Catch';
+            adminLog('Guaranteed Catch OFF.', '#e74c3c');
+        }
+        saveGame();
+    }
+
+    function skipMapCooldownCheat(silent = false) {
+        clearInterval(mapChangeInterval);
+        mapCooldown = false;
+        mapChangeTimer = 0;
+        
+        fishingButton.disabled = false;
+        toggleMapButtons(false);
+        if (inventory.length > 0) sellAllButton.disabled = false;
+
+        if (!silent) {
+            statusCooldown.textContent = 'Map Cooldown: Inactive';
+            adminLog('Map cooldown skipped! Instant travel enabled.');
+        }
+    }
+
+    function spawnIslandCheat() {
+        if (isRarityIslandActive) {
+            removeRarityIsland();
+            // Need to re-start the timer which is also the removal timer if the island is active
+            startIslandTimer(); 
+            adminLog('Forced Ephemeral Isle to vanish.');
+        } else {
+            spawnRarityIsland();
+            adminLog('Forced Ephemeral Isle to spawn!');
+        }
+        generateMapButtons();
+    }
+
+    function clearInventoryCheat() {
+        inventory = [];
+        updateInventoryDisplay();
+        adminLog('Inventory cleared.');
+        saveGame();
+    }
+
+    function discoverAllFishCheat() {
+        RARITIES.forEach(rarity => {
+            FISH_NAMES[rarity.name].forEach(name => {
+                discoveredFish.add(name);
+            });
+        });
+        adminLog('All fish names discovered in Bestiary!');
+        updateBestiaryDisplay(currentMapId);
+    }
+
+    // =================================================================
+    // >>> INITIALIZATION AND EVENT LISTENERS <<<
+    // =================================================================
+    // Expose functions globally for HTML buttons (essential)
+    window.startFishing = startFishing;
+    window.sellAllFish = sellAllFish;
+    window.saveGame = saveGame;
+    window.loadGame = loadGame;
+    window.resetGame = resetGame;
+    window.openShop = openShop;
+    window.closeShop = closeShop;
+    window.updateShopDisplay = updateShopDisplay;
+    window.buyRod = buyRod;
+    window.equipRod = equipRod;
+    window.openAdminPanel = openAdminPanel;
+    window.closeAdminPanel = closeAdminPanel;
+    window.addMoneyCheat = addMoneyCheat;
+    window.setMoneyCheat = setMoneyCheat;
+    window.giveRodCheat = giveRodCheat;
+    window.showAdminTab = showAdminTab;
+    window.giveAllRodsCheat = giveAllRodsCheat;
+    window.resetRodsCheat = resetRodsCheat; 
+    window.clearInventoryCheat = clearInventoryCheat;
+    window.discoverAllFishCheat = discoverAllFishCheat;
+    window.skipMapCooldownCheat = skipMapCooldownCheat;
+    window.toggleGuaranteedCatchCheat = toggleGuaranteedCatchCheat; 
+    window.updateBestiaryDisplay = updateBestiaryDisplay;
+    window.initiateMapChange = initiateMapChange;
+    window.closeBestiary = closeBestiary;
+    // NEW CRAFTING/ISLAND FUNCTIONS
+    window.openCrafting = openCrafting;
+    window.closeCrafting = closeCrafting;
+    window.updateCraftingDisplay = updateCraftingDisplay;
+    window.craftRod = craftRod;
+    window.spawnIslandCheat = spawnIslandCheat;
+
+
+    function initialSetup() {
+        // Event listeners for main buttons
+        fishingButton.onclick = startFishing;
+        sellAllButton.onclick = sellAllFish;
+        document.getElementById('bestiary-button').onclick = openBestiary;
+        document.getElementById('shop-button').onclick = openShop;
+        
+        // Setup Admin Panel trigger
+        document.getElementById('cheat-trigger-button').addEventListener('click', openAdminPanel);
+
+        // Initial updates
+        updateMoneyDisplay();
+        updateRodDisplay();
+    }
+
+    // Initialize the game when the body loads
+    // loadGame() is called in the body tag: <body onload="loadGame()">
+    initialSetup(); 
+</script>
+
+</body>
+</html>
